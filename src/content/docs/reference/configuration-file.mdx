@@ -1,0 +1,154 @@
+---
+title: Configuration file
+description: Every section of compendium.toml, what's required, and what's optional.
+---
+
+`compendium.toml` is the single source of truth for your project's environment.
+Compendium reads it, resolves it against the registry, and installs everything
+under `~/.local/compendium/`. Anyone with the file and a Compendium binary can
+reproduce the environment.
+
+This page covers every section recognized in v0.1.
+
+## Minimum viable config
+
+The smallest valid `compendium.toml`:
+
+```toml
+[compendium]
+version = "1.0.0"
+min_compendium = "0.1.0"
+
+[registry]
+source = "public"
+```
+
+That alone won't install anything, but it's a legal file. Real projects add at
+least one `[languages]` or `[tools]` entry.
+
+A typical Go project:
+
+```toml
+[compendium]
+version = "1.0.0"
+min_compendium = "0.1.0"
+
+[registry]
+source = "public"
+
+[languages]
+go = "1.26.1"
+
+[tools]
+golangci-lint = "2.12.2"
+```
+
+## `[compendium]` (required)
+
+Project metadata.
+
+```toml
+[compendium]
+version = "1.0.0"
+min_compendium = "0.1.0"
+```
+
+| Field            | Required | Description                                                                                                                                  |
+| ---------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `version`        | Yes      | Your project's environment version. Bump when you change `compendium.toml`. *(Convention only; not enforced.)*                               |
+| `min_compendium` | Yes      | Minimum Compendium binary intended to read this file. *(Reserved; not yet enforced — older binaries will not refuse to run today.)*          |
+| `name`           | No       | Project name. Defaults to the basename of the current directory.                                                                              |
+
+## `[registry]` (required)
+
+Where Compendium fetches manifests and binaries from.
+
+```toml
+[registry]
+source = "public"
+```
+
+| Field    | Required | Description                                                              |
+| -------- | -------- | ------------------------------------------------------------------------ |
+| `source` | Yes      | Must be `"public"`. Only the public registry is supported in v0.1.       |
+
+## `[languages]` (optional)
+
+Language runtimes and primary compilers. One key per language, value is the
+version string.
+
+```toml
+[languages]
+go = "1.26.1"
+node = "24.15.0"
+python = "3.14.5"
+c = "gcc@15.2.0-1"
+```
+
+Versions must exist in the registry. Run `compendium versions <name>` to see
+what's available. Each installs to
+`~/.local/compendium/languages/<name>/<version>/`.
+
+:::note
+If you define both `c` and `cpp`, Compendium installs only `c` (a single compiler ships both drivers) and warns about the duplicate. Pick one.
+:::
+
+## `[tools]` (optional)
+
+Build tools, linters, debuggers, package managers, and other utilities. Same
+shape as `[languages]`.
+
+```toml
+[tools]
+cmake = "4.3.2"
+ninja = "1.13.2"
+golangci-lint = "2.12.2"
+ccache = "4.13.6"
+```
+
+Each installs to `~/.local/compendium/tools/<name>/<version>/`.
+
+The split between `[languages]` and `[tools]` is by storage path, not
+capability. See [Available tools](/reference/available-tools/) for which
+name goes where.
+
+## `[packages]` (optional)
+
+C/C++ package manager integration via vcpkg. Other keys are accepted by the
+parser but currently have no effect.
+
+```toml
+[packages]
+vcpkg = "vcpkg.json"
+```
+
+| Key     | Behavior                                                                                                                                                       |
+| ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `vcpkg` | Creates `vcpkg-installed/` under the project env and sets `VCPKG_ROOT` + `VCPKG_INSTALLED_DIR` on activate. Does not run `vcpkg install` — invoke that yourself. |
+
+Paths are relative to the project root.
+
+## Full example
+
+A C++ project pulling everything together:
+
+```toml
+[compendium]
+version = "1.2.0"
+min_compendium = "0.1.0"
+
+[registry]
+source = "public"
+
+[languages]
+c = "gcc@15.2.0-1"
+python = "3.14.5"
+
+[tools]
+cmake = "4.3.2"
+ninja = "1.13.2"
+ccache = "4.13.6"
+
+[packages]
+vcpkg = "vcpkg.json"
+```

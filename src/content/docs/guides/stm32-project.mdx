@@ -1,0 +1,284 @@
+---
+title: STM32 projects
+description: Build an STM32CubeMX project with Compendium's arm-none-eabi-gcc, CMake, and OpenOCD. Same toolchain on every machine.
+---
+
+import { Aside, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+
+STM32CubeMX scaffolds the project. Compendium pins the compiler, build
+tools, and flasher. The CMake preset that CubeMX writes already works;
+you just provide the toolchain.
+
+```bash
+compendium install
+source <(compendium activate)
+cmake --preset Debug
+cmake --build build/Debug
+openocd -f interface/stlink.cfg -f target/stm32l4x.cfg \
+  -c "program build/Debug/nucleo_l432kc_first.elf verify reset exit"
+```
+
+This guide walks through how Compendium slots into a CubeMX-generated
+project, what activate exports for embedded builds, and the gotchas
+worth knowing.
+
+## Generate the scaffold with CubeMX
+
+Before Compendium can do anything, you need a CubeMX project. From
+STM32CubeMX:
+
+1. Create or open a `.ioc` file. Configure clock tree, peripherals, and pins.
+2. Project Manager → Toolchain/IDE → **CMake**.
+3. Project Manager → Code Generator → check **Generate peripheral initialization as a pair of '.c/.h'**.
+4. **Generate Code**.
+
+CubeMX writes:
+
+```
+nucleo_l432kc_first/
+├── nucleo_l432kc_first.ioc    # CubeMX project
+├── CMakeLists.txt             # top-level CMake
+├── CMakePresets.json          # Debug + Release presets
+├── cmake/
+│   ├── gcc-arm-none-eabi.cmake   # toolchain file (MCU flags live here)
+│   └── stm32cubemx/              # generated HAL/CMSIS targets
+├── Core/                      # main.c, HAL handles, stm32xx_it.c
+├── Drivers/                   # STM32 HAL + CMSIS sources
+├── startup_stm32l432xx.s      # vector table + reset handler
+└── STM32L432XX_FLASH.ld       # linker script
+```
+
+Compendium plugs into this without changing any of it.
+
+## Add `compendium.toml`
+
+The only file Compendium needs:
+
+```toml
+[compendium]
+name = "nucleo_l432kc_first"
+version = "0.1.0"
+min_compendium = "0.1.0"
+
+[registry]
+source = "public"
+
+[languages]
+cpp = "arm-none-eabi-gcc@14.2.1-1.1"
+
+[tools]
+cmake = "4.3.1"
+ninja = "1.13.2"
+openocd = "0.12.0-7"
+```
+
+The `cpp` key handles both C and C++; `arm-none-eabi-gcc` ships both
+drivers. CubeMX projects are usually C + ASM, but the same compiler
+covers C++ if you add it later.
+
+`compendium install` extracts the cross-compiler to
+`~/.local/compendium/languages/arm-none-eabi-gcc/14.2.1-1.1/`, and
+OpenOCD to `~/.local/compendium/tools/openocd/0.12.0-7/`. Both go on
+`PATH` when you activate.
+
+## What CubeMX put in the CMake toolchain file
+
+Open `cmake/gcc-arm-none-eabi.cmake`. CubeMX wrote MCU-specific flags
+in here:
+
+```cmake
+set(CMAKE_SYSTEM_NAME           Generic)
+set(CMAKE_SYSTEM_PROCESSOR      arm)
+
+set(TOOLCHAIN_PREFIX            arm-none-eabi-)
+set(CMAKE_C_COMPILER            ${TOOLCHAIN_PREFIX}gcc)
+set(CMAKE_CXX_COMPILER          ${TOOLCHAIN_PREFIX}g++)
+set(CMAKE_ASM_COMPILER          ${CMAKE_C_COMPILER})
+set(CMAKE_LINKER                ${TOOLCHAIN_PREFIX}g++)
+set(CMAKE_OBJCOPY               ${TOOLCHAIN_PREFIX}objcopy)
+set(CMAKE_SIZE                  ${TOOLCHAIN_PREFIX}size)
+
+set(TARGET_FLAGS "-mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard ")
+
+# ...linker script, gc-sections, --specs=nano.specs, etc.
+```
+
+Two things to notice:
+
+1. The toolchain file uses the **prefix** `arm-none-eabi-` and lets the
+   shell resolve those binaries on `PATH`. It does not hardcode a path.
+   That's the contract Compendium fulfills: after activate, `which
+   arm-none-eabi-gcc` resolves to the Compendium-managed copy.
+2. MCU flags (`-mcpu`, `-mfpu`, `-mfloat-abi`), the linker script, and
+   `--specs=nano.specs` all live in this file, not in
+   `compendium.toml`. Compendium does not manage these. Different boards
+   need different flags here.
+
+The `CMakePresets.json` CubeMX wrote points at this toolchain file:
+
+```json
+{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "default",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "toolchainFile": "${sourceDir}/cmake/gcc-arm-none-eabi.cmake"
+    },
+    { "name": "Debug",   "inherits": "default", "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug"   } },
+    { "name": "Release", "inherits": "default", "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" } }
+  ],
+  "buildPresets": [
+    { "name": "Debug",   "configurePreset": "Debug"   },
+    { "name": "Release", "configurePreset": "Release" }
+  ]
+}
+```
+
+Nothing here references Compendium. The preset works as soon as
+`arm-none-eabi-gcc` is on `PATH`.
+
+## What Compendium sets during activate
+
+For an embedded build, the exported environment is much smaller than
+for the host C/C++ workflow. No vcpkg, no libc++ flags, no `SDKROOT`.
+
+| Variable                 | Value                                                                       | Purpose                                  |
+| ------------------------ | --------------------------------------------------------------------------- | ---------------------------------------- |
+| `CC`                     | `~/.local/compendium/languages/arm-none-eabi-gcc/<ver>/bin/arm-none-eabi-gcc` | C compiler                              |
+| `CXX`                    | `~/.local/compendium/languages/arm-none-eabi-gcc/<ver>/bin/arm-none-eabi-g++` | C++ compiler                            |
+| `COMPENDIUM_CC_CXX_DIR`  | `~/.local/compendium/languages/arm-none-eabi-gcc/<ver>`                     | Compiler install root                    |
+| `COMPENDIUM_DEBUGGER`    | `<above>/bin/arm-none-eabi-gdb`                                             | gdb path for IDE configuration           |
+| `PATH`                   | Compiler bin, CMake, Ninja, OpenOCD                                         | All tools reachable from the shell       |
+
+That's the entire embedded story. The CMake toolchain file finds the
+prefixed binaries (`arm-none-eabi-gcc`, `arm-none-eabi-objcopy`, etc.)
+on `PATH`. The MCU flags come from the toolchain file. The linker
+script comes from the project root. Compendium just makes the binaries
+exist at known versions.
+
+## Flashing with OpenOCD
+
+OpenOCD ships with Compendium. After `cmake --build`, flash with:
+
+```bash
+openocd \
+  -f interface/stlink.cfg \
+  -f target/stm32l4x.cfg \
+  -c "program build/Debug/nucleo_l432kc_first.elf verify reset exit"
+```
+
+The `interface/` and `target/` config files come from inside OpenOCD's
+install dir, which is on `PATH` after activate. Swap `stm32l4x.cfg`
+for the family that matches your MCU.
+
+For interactive debugging, run OpenOCD as a gdb server:
+
+```bash
+openocd -f interface/stlink.cfg -f target/stm32l4x.cfg
+```
+
+Then in another shell:
+
+```bash
+arm-none-eabi-gdb build/Debug/nucleo_l432kc_first.elf \
+  -ex "target extended-remote localhost:3333" \
+  -ex "monitor reset halt" \
+  -ex "load"
+```
+
+`$COMPENDIUM_DEBUGGER` points at the same gdb if your IDE needs an
+absolute path.
+
+## Caveats
+
+### Compendium does not generate or edit CubeMX files
+
+Compendium installs the toolchain. It does not generate `.ioc` projects,
+regenerate code when you change peripherals, or touch the toolchain
+`.cmake` file. CubeMX is the source of truth for everything inside
+`Core/`, `Drivers/`, `cmake/stm32cubemx/`, the linker script, and the
+startup file. Re-run CubeMX when you change hardware config.
+
+### MCU flags live in the CMake toolchain file, not `compendium.toml`
+
+CubeMX writes `-mcpu`, `-mfpu`, `-mfloat-abi`, the linker script path,
+and `--specs=nano.specs` into `cmake/gcc-arm-none-eabi.cmake`. If you
+need different flags (a different MCU, hard vs soft float, picolibc
+instead of newlib-nano), edit that file. Compendium will never override
+these.
+
+If you regenerate from CubeMX after manual edits, double-check this
+file: CubeMX may rewrite it.
+
+### vcpkg is not used for bare-metal embedded
+
+vcpkg pulls in host-style libraries (spdlog, fmt, gtest) that don't
+exist on a Cortex-M4. Leave `[packages]` out of `compendium.toml` for
+embedded projects. Embedded libraries (HAL, CMSIS, FreeRTOS, LVGL) are
+either CubeMX-managed or vendored into the repo.
+
+### `[target]` is reserved but not yet wired up
+
+The Compendium spec describes a `[target]` table for platform/arch/FPU
+metadata. v0.1 parses it and emits warnings on unknown values, but
+nothing in the install or activate path consumes it. Don't put MCU
+config in `[target]` expecting Compendium to act on it. Use the CMake
+toolchain file.
+
+### The Compendium-managed binaries are on `PATH`, not aliased
+
+`which arm-none-eabi-gcc` should resolve to a path under
+`~/.local/compendium/languages/arm-none-eabi-gcc/<ver>/bin/` after
+activate. If it resolves to `/usr/local/bin` or a Homebrew location,
+either you skipped activate or a system install is shadowing it.
+`compendium env` shows you exactly what's exported.
+
+### macOS Gatekeeper may quarantine arm-none-eabi-gdb
+
+The first time you run `arm-none-eabi-gdb` on macOS, Gatekeeper may
+block it because the xPack build isn't notarized by Apple. Allow it
+once in System Settings → Privacy & Security, or run:
+
+```bash
+xattr -d com.apple.quarantine \
+  ~/.local/compendium/languages/arm-none-eabi-gcc/<ver>/bin/arm-none-eabi-gdb
+```
+
+## File checklist
+
+A Compendium-ready STM32 project has these in the repo root:
+
+```
+nucleo_l432kc_first/
+├── nucleo_l432kc_first.ioc     # CubeMX project (regenerate when HW changes)
+├── compendium.toml             # toolchain definition (you add this)
+├── CMakeLists.txt              # generated by CubeMX
+├── CMakePresets.json           # generated by CubeMX
+├── cmake/
+│   ├── gcc-arm-none-eabi.cmake # toolchain file with MCU flags
+│   └── stm32cubemx/            # generated HAL/CMSIS targets
+├── Core/                       # generated + user code
+├── Drivers/                    # generated HAL + CMSIS
+├── startup_stm32l432xx.s       # generated startup
+└── STM32L432XX_FLASH.ld        # generated linker script
+```
+
+Clone the repo, run `compendium install`, source activate, build, flash.
+
+## Common issues
+
+The consolidated reference is in [Troubleshooting](/reference/troubleshooting/).
+For STM32 / arm-none-eabi projects, the most frequent reports are:
+
+- `arm-none-eabi-gcc: command not found` — `source <(compendium activate)` wasn't run; check `echo $CC`
+- macOS Gatekeeper blocks `arm-none-eabi-gdb` on first run — strip the quarantine attribute with `xattr -d`
+- `region 'FLASH' overflowed by N bytes` — firmware too large; trim code or edit the linker script
+- `undefined reference to '_sbrk'` (and friends) — `--specs=nano.specs` missing from the toolchain file
+- OpenOCD `Error: open failed` — ST-Link disconnected, wrong USB permissions, or another debugger attached
+- Build picks up host `gcc` instead of `arm-none-eabi-gcc` — CMake toolchain file not applied
+
+See the [Embedded section](/reference/troubleshooting/#embedded-arm-none-eabi)
+for fixes.

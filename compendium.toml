@@ -1,0 +1,16 @@
+[compendium]
+name = "compendium-docs"
+version = "0.1.0"
+min_compendium = "dev-alpha"
+
+[registry]
+source = "public"
+
+[languages]
+node = "22.22.2"
+
+[tools]
+pnpm = "10.33.4"
+
+[packages]
+npm = "package.json"

@@ -1,0 +1,109 @@
+---
+title: Installing
+description: Install Compendium on macOS or Linux. No sudo, no system directories.
+---
+
+import { latestVersion } from "../../../lib/latestVersion";
+
+Compendium is a single binary. Everything it installs goes under
+`~/.local/compendium/` no sudo, no root, no system directories touched.
+
+## Supported platforms
+
+| OS      | Architectures        |
+| ------- | -------------------- |
+| macOS   | Apple Silicon, Intel |
+| Linux   | x86_64, arm64        |
+| Windows | Not supported        |
+
+## Quick install
+
+Install with curl:
+
+```bash
+curl -fsSL https://compendium.ilean.me/install.sh | sh
+```
+
+Or with wget:
+
+```bash
+wget -qO- https://compendium.ilean.me/install.sh | sh
+```
+
+The script downloads the right binary for your platform, verifies its sha256
+checksum against `https://compendium.ilean.me/dl/<version>/checksums.txt`, and
+installs to `~/.local/bin/`. Checksum verification is non-negotiable — there is
+no `--skip-checksum` flag.
+
+### Pin a specific version
+
+```bash
+curl -fsSL https://compendium.ilean.me/install.sh | COMPENDIUM_VERSION=v0.1.0 sh
+```
+
+### Install to a different directory
+
+Default: `~/.local/bin/compendium`. Override with `INSTALL_DIR`:
+
+```bash
+curl -fsSL https://compendium.ilean.me/install.sh | INSTALL_DIR=$HOME/bin sh
+```
+
+### Inspect before running
+
+If you don't want to pipe a script to your shell sight unseen:
+
+```bash
+curl -fsSL https://compendium.ilean.me/install.sh -o install.sh
+less install.sh
+sh install.sh
+```
+
+## Build from source
+
+This is supported, but the preferred method is using the install script.
+
+### Prerequisites
+
+- **Go 1.26 or newer** — check with `go version`.
+- **git** to clone the repo.
+- A directory on your `PATH` for the binary. `~/.local/bin/` is the convention
+  on macOS and Linux — Compendium itself never touches system paths.
+
+### Build
+
+```bash
+git clone https://github.com/ileanmjr88/compendium.git
+cd compendium
+make build
+```
+
+The build produces `bin/compendium`. Copy it to your `PATH`:
+
+```bash
+mkdir -p ~/.local/bin
+cp bin/compendium ~/.local/bin/
+```
+
+If `~/.local/bin/` is not on your `PATH` yet, add it to your shell profile:
+
+```bash
+# bash / zsh
+export PATH="$HOME/.local/bin:$PATH"
+
+# fish
+fish_add_path "$HOME/.local/bin"
+```
+
+## Verify
+
+```bash
+compendium version
+```
+
+You should see <code>{latestVersion}</code> (the latest release), or `dev` if you built from `main`.
+
+## What's next
+
+Head to [First steps](/getting-started/first-steps/) to set up your first
+project with Compendium.

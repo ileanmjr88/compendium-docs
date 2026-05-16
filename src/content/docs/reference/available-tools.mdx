@@ -1,0 +1,88 @@
+---
+title: Available tools
+description: Languages and tools available in the public Compendium registry, pulled live at build time.
+---
+
+import { REGISTRY_URL } from '../../../registry';
+
+export const index = await fetch(`${REGISTRY_URL}/index.json`).then((r) => r.json());
+export const builtAt = new Date().toISOString().slice(0, 10);
+
+Everything below comes straight from the public registry. The CLI fetches
+the same `index.json` when you run `compendium install`. Click a tool name
+to see every version in its manifest file.
+
+## Languages
+
+<table>
+	<thead>
+		<tr>
+			<th>Tool</th>
+			<th>Latest</th>
+			<th>Versions</th>
+		</tr>
+	</thead>
+	<tbody>
+		{Object.entries(index.languages).map(([name, info]) => (
+			<tr>
+				<td>
+					<a href={`https://github.com/ileanmjr88/compendium-registry/blob/main/${info.file}`}>
+						<code>{name}</code>
+					</a>
+				</td>
+				<td><code>{info.latest}</code></td>
+				<td>{info.versions}</td>
+			</tr>
+		))}
+	</tbody>
+</table>
+
+## Tools
+
+<table>
+	<thead>
+		<tr>
+			<th>Tool</th>
+			<th>Latest</th>
+			<th>Versions</th>
+		</tr>
+	</thead>
+	<tbody>
+		{Object.entries(index.tools).map(([name, info]) => (
+			<tr>
+				<td>
+					<a href={`https://github.com/ileanmjr88/compendium-registry/blob/main/${info.file}`}>
+						<code>{name}</code>
+					</a>
+				</td>
+				<td><code>{info.latest}</code></td>
+				<td>{info.versions}</td>
+			</tr>
+		))}
+	</tbody>
+</table>
+
+## How to use a specific version
+
+Set the version exactly in your `compendium.toml`:
+
+```toml
+[languages]
+go = "1.26.1"
+
+[tools]
+cmake = "4.3.1"
+```
+
+Then run `compendium install` — the registry resolves the platform/arch
+tarball for your machine, downloads it, and verifies the SHA-256 checksum.
+
+If a version isn't listed here, it isn't installable. Open a PR against
+[compendium-registry](https://github.com/ileanmjr88/compendium-registry)
+to add it.
+
+---
+
+<small>
+Registry index version: `{index.version}` · updated upstream `{index.updated_at}` · page baked at `{builtAt}`.
+</small>

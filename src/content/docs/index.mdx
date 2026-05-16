@@ -1,0 +1,40 @@
+---
+title: Compendium
+description: Reproducible developer environments, declared in one config.
+template: splash
+hero:
+  tagline: Reproducible developer environments, declared in one config.
+  image:
+    file: ../../assets/compendium-logo-transparent.svg
+  actions:
+    - text: About
+      link: /about
+      icon: information
+    - text: Install
+      link: /getting-started/installation/
+      icon: right-arrow
+      variant: primary
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+<CardGrid>
+	<Card title="One binary" icon="seti:go">
+		Single Go binary. Public registry of curated tool versions.
+		GPL v3.
+	</Card>
+	<Card title="Per-project isolation" icon="puzzle">
+		Different projects, different toolchains, zero conflicts. Switch
+		with `compendium activate` — no globals, no version managers
+		fighting each other.
+	</Card>
+	<Card title="C/C++ and embedded" icon="setting">
+		First-class support for GCC, Clang, `arm-none-eabi-gcc`,
+		`riscv-none-elf-gcc`, vcpkg, CMake, OpenOCD.
+	</Card>
+	<Card title="Native, no Docker" icon="laptop">
+		Tools run at full native speed. USB access for flashing boards
+		just works. Everything lives under `~/.local/compendium/` — no
+		sudo, no root, no IT ticket.
+	</Card>
+</CardGrid>

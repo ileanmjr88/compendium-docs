@@ -1,0 +1,86 @@
+---
+title: Roadmap
+description: What ships in v0.1, what's coming next, and what's deferred. Updated as plans firm up.
+---
+
+This page reflects what Compendium does today versus what's planned for
+the next two releases.
+
+## v0.1 (current)
+
+The foundation: pin a toolchain in `compendium.toml`, install it
+under `~/.local/compendium/`, activate it with one shell command.
+
+**Languages.** C and C++ (via `gcc` and `clang`), Python, Node, Go, and
+the embedded cross-compilers `arm-none-eabi-gcc`, `aarch64-none-elf-gcc`,
+and `riscv-none-elf-gcc`.
+
+**Tools.** Build (`cmake`, `ninja`, `ccache`, `pkg-config`, `m4`, `bison`),
+linters and formatters (`golangci-lint`, `ruff`), package managers
+(`vcpkg`, `uv`, `pnpm`), embedded (`openocd`), release tooling
+(`goreleaser`), and `realpath`.
+
+See [Available tools](/reference/available-tools/) for the live list of
+versions in the registry.
+
+**Package managers.** `vcpkg` is wired up (per-project install dir,
+`VCPKG_ROOT` and `VCPKG_INSTALLED_DIR` exported on activate). Other
+keys in `[packages]` are parsed but not yet consumed.
+
+**Per-project environments.**
+
+- Python: project-scoped `venv/`, `VIRTUAL_ENV` and `UV_PROJECT_ENVIRONMENT` exported on activate.
+- Go: project-scoped `GOPATH` and `GOBIN`, both on `PATH` after activate.
+
+**Commands.** `install`, `activate`, `deactivate`, `env`, `status`,
+`versions`, `version`.
+
+**Registry.** Public registry only.
+
+**Platforms.** macOS and Linux.
+
+## v0.2 (coming next)
+
+Broaden C/C++ build system support, add major language runtimes,
+complete the embedded cross-compiler set, and improve developer
+ergonomics.
+
+- **Multi-build-system support for C/C++**: Meson, Autotools, raw
+  Makefiles, b2 (Boost).
+- **Java** and its build tools.
+- **Rust** and its tooling.
+- **ESP32 / Xtensa toolchain** (`xtensa-esp-elf-gcc`) — natural
+  completion of the embedded cross-compiler set.
+- **Git hook runner** — the custom hook executor for `[hooks]` in
+  `compendium.toml`. The section is parsed in v0.1 but nothing runs yet.
+- **Auto-activate on branch switch** — Compendium installs a post-checkout git 
+  hook that runs compendium activate when you switch branches, so the environment follows your code
+- **`compendium doctor`** and better error messages across the CLI.
+- **`compendium.lock`** — a new committed lockfile that pins exact
+  versions and checksums. `compendium install` honors it on subsequent
+  runs.
+- **`compendium verify`** — reproducibility check that the local cache
+  matches the lockfile.
+
+## v0.3
+
+First-party ownership of the runtime layer, plus a Compendium-native
+C/C++ package manager.
+
+- **Built-in C/C++ library manager alternative** — config-driven through `[deps.*]` 
+  in `compendium.toml`.
+- **Patch infrastructure** for C/C++ dependencies — declared per-dep,
+  applied in order before build, fails hard on conflict, patch contents
+  hashed into the lockfile for reproducibility.
+- **Bun**: JavaScript runtime that bundles its own package manager, bundler,
+  and test runner. One pin in `[languages]` replaces `node` plus a separate
+  `[tools].pnpm` for projects that adopt it wholesale.
+- **Zig** — systems language adjacent to C/C++; `zig cc` also works as a
+  C/C++ cross-compiler.
+- **Kotlin** — JVM language, builds on the v0.2 Java work.
+- **ASP.NET** — Linux and macOS only. Windows is not on the immediate
+  roadmap.
+- **`compendium clean`** — clear download scratch and manifest cache.
+  Does not garbage-collect installed tool versions — that needs
+  project-registry design and comes later.
+

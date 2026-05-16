@@ -1,0 +1,36 @@
+---
+title: About
+description: Reproducible developer environments, declared in one config.
+---
+
+## Origin
+This project came from the frustration of setting up a new development environment every time I switched between my MacBook and my Linux computer, and losing the first few days at every new job installing the tools needed to work with the codebase. The documentation was often stale, since the tool setup had changed since the last update.
+
+Compendium came out of that frustration. The goal: set up a project across different computers with the same pinned compilers, runtimes, and supporting tools, easily and without headaches.
+
+## What Compendium is
+Compendium lets you declare your project's compilers, runtimes, and tools in a single config file, pinned to specific versions. One command installs everything into an isolated per-project environment.
+
+## Status
+![Version](https://img.shields.io/github/v/release/ileanmjr88/compendium?include_prereleases)
+![Last commit](https://img.shields.io/github/last-commit/ileanmjr88/compendium)
+![Open issues](https://img.shields.io/github/issues/ileanmjr88/compendium)
+
+## How the project is organized
+The project has two components:
+- [compendium](https://github.com/ileanmjr88/compendium) — the CLI (Go, GPL v3). Reads your config, queries the registry, installs the environment.
+- [compendium-registry](https://github.com/ileanmjr88/compendium-registry) — a curated index of tools with prebuilt binaries for macOS and Linux (CC0, fork it freely).
+
+## Scope
+Compendium manages per-project development environments. It is not a container runtime, not a CI system, and not a replacement for Docker when you need true OS-level isolation. If your project needs a database or a message broker running locally, use Docker Compose alongside Compendium, they solve different problems.
+
+## Maintainer
+Built by [Ilean Monterrubio Jr](https://ilean.me) ([@ileanmjr88](https://github.com/ileanmjr88)). Solo project, written in the open.
+
+## Contributing
+- **Found a bug or have a feature request?** [Open an issue](https://github.com/ileanmjr88/compendium/issues).
+- **Want to add a tool to the registry?** PRs welcome on [compendium-registry](https://github.com/ileanmjr88/compendium-registry).
+- **Questions?** [GitHub Discussions](https://github.com/ileanmjr88/compendium/discussions).
+
+## Privacy
+This site uses [Umami](https://umami.is) for privacy-friendly analytics. No cookies, no personal data collected.
