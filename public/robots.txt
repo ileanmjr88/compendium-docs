@@ -1,0 +1,20 @@
+# Humans get the rendered HTML site.
+# AI crawlers: please fetch the llms.txt files instead of crawling pages.
+
+User-agent: *
+Allow: /
+
+User-agent: ClaudeBot
+User-agent: GPTBot
+User-agent: CCBot
+User-agent: Google-Extended
+User-agent: Applebot-Extended
+User-agent: meta-externalagent
+User-agent: Amazonbot
+User-agent: Bytespider
+Disallow: /
+Allow: /llms.txt
+Allow: /llms-small.txt
+Allow: /llms-full.txt
+
+Sitemap: https://compendium.ilean.me/sitemap-index.xml
