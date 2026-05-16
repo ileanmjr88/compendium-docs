@@ -33,7 +33,7 @@ export default defineConfig({
         {
           label: "Getting started",
           items: [
-            { label: "Installing Compendium", slug: "getting-started/installation" },
+            { label: "Installing", slug: "getting-started/installation" },
             { label: "First steps", slug: "getting-started/first-steps" },
           ],
         },
