@@ -9,7 +9,8 @@ export default defineConfig({
   integrations: [
     starlight({
       title: "Compendium",
-      description: "Reproducible developer environments, declared in one config.",
+      description:
+        "Reproducible developer environments, declared in one config.",
       plugins: [starlightLlmsTxt()],
       head: [
         {
@@ -35,6 +36,7 @@ export default defineConfig({
           items: [
             { label: "Installing", slug: "getting-started/installation" },
             { label: "First steps", slug: "getting-started/first-steps" },
+            { label: "AI Tooling", slug: "getting-started/ai-tooling" },
           ],
         },
         {
@@ -45,7 +47,7 @@ export default defineConfig({
           label: "Reference",
           items: [{ autogenerate: { directory: "reference" } }],
         },
-        { label: "Roadmap", slug: "roadmap"},
+        { label: "Roadmap", slug: "roadmap" },
         {
           label: "Acknowledgement",
           slug: "acknowledge",
