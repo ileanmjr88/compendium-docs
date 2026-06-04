@@ -47,6 +47,7 @@ export default defineConfig({
           label: "Reference",
           items: [{ autogenerate: { directory: "reference" } }],
         },
+        { label: "FAQ", slug: "faq" },
         { label: "Roadmap", slug: "roadmap" },
         {
           label: "Acknowledgement",
