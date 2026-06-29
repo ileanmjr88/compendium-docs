@@ -1,5 +1,7 @@
 # Contributing to the Compendium docs
 
+> 🌐 **English** · [Español](./CONTRIBUTING.es.md)
+
 Thanks for considering a contribution. This repo holds the source for [compendium.ilean.me](https://compendium.ilean.me). If you spotted a typo, a broken link, an outdated example, or you want to add a new guide, you're in the right place.
 
 For bug reports about the **Compendium CLI itself** (not the docs), open an issue on [ileanmjr88/compendium](https://github.com/ileanmjr88/compendium/issues) instead.

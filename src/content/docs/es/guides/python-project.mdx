@@ -1,0 +1,390 @@
+---
+title: Proyectos en Python
+description: Fije el intérprete de Python, obtenga automáticamente un venv por proyecto y ejecute pip o uv contra el mismo entorno gestionado.
+---
+
+import { Aside, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+
+Fije la versión de Python en `compendium.toml` y Compendium crea un venv
+por proyecto por usted. Tanto `pip` como `uv` escriben en ese mismo venv,
+así que conserva su flujo de trabajo existente sin `pyenv`,
+`python -m venv` ni un `.venv/` junto al código fuente.
+
+```bash
+compendium install
+source <(compendium activate)
+pip install -r requirements.txt   # o: uv sync
+python main.py
+```
+
+Esta guía recorre los dos flujos de trabajo reales: un proyecto basado en
+pip ([f1-race-replay](https://github.com/ileanmjr88/f1-race-replay)) y un
+proyecto basado en uv ([safer](https://github.com/rec/safer)).
+
+## Los archivos
+
+<Tabs syncKey="pkg-mgr">
+
+<TabItem label="pip">
+
+<Steps>
+
+1. **`compendium.toml`** : versión de Python, nada más hace falta.
+
+   ```toml
+   [compendium]
+   name = "f1-race-replay"
+   version = "0.1.0"
+   min_compendium = "0.1.0"
+
+   [registry]
+   source = "public"
+
+   [languages]
+   python = "3.13.13"
+
+   [packages]
+   pip = "requirements.txt"
+   ```
+
+   La clave `[packages].pip` hoy es documentación. El parser la acepta
+   pero la ruta de instalación no ejecuta `pip install` automáticamente.
+   Vea [Consideraciones](#packagespip-se-parsea-pero-todavía-no-está-conectado).
+   De todos modos ejecuta usted la instalación; cae en el venv correcto en
+   cualquier caso.
+
+2. **`requirements.txt`** : pip estándar, nada específico de Compendium.
+
+   ```
+   fastf1
+   pandas
+   matplotlib
+   numpy
+   pyside6
+   rich
+   ```
+
+   Fije versiones aquí cuando le importe la reproducibilidad
+   (`pandas==2.2.3`). `pip freeze > requirements.txt` es la forma habitual
+   de capturar lo que realmente se instaló.
+
+</Steps>
+
+</TabItem>
+
+<TabItem label="uv">
+
+<Steps>
+
+1. **`compendium.toml`** : versión de Python más `uv` en `[tools]`.
+
+   ```toml
+   [compendium]
+   name = "safer"
+   version = "0.1.0"
+   min_compendium = "0.1.0"
+
+   [registry]
+   source = "public"
+
+   [languages]
+   python = "3.10.20"
+
+   [tools]
+   uv = "0.10.10"
+   ruff = "0.14.14"
+
+   [packages]
+   uv = "pyproject.toml"
+   ```
+
+   Fijar `uv` y `ruff` en `[tools]` significa que la CI y cada laptop
+   obtienen las mismas versiones. uv se instala en
+   `~/.local/compendium/tools/uv/<ver>/` y queda en el `PATH` después de
+   activate.
+
+2. **`pyproject.toml`** : archivo de proyecto PEP 621 / uv estándar.
+
+   ```toml
+   [project]
+   name = "safer"
+   version = "5.4.0"
+   requires-python = ">=3.10"
+
+   [dependency-groups]
+   dev = [
+       "coverage",
+       "pytest",
+       "ruff",
+       "ty>=0.0.14",
+   ]
+
+   [tool.ruff]
+   line-length = 88
+
+   [build-system]
+   requires = ["hatchling"]
+   build-backend = "hatchling.build"
+   ```
+
+   Nada aquí hace referencia a Compendium. uv lee `pyproject.toml` como
+   siempre lo hace.
+
+3. **`uv.lock`** : generado por `uv sync`, haga commit.
+
+   Bloquea cada dependencia transitiva a una versión + hash exactos. Mismo
+   `uv.lock` + mismo Python = instalación idéntica en cada máquina.
+
+</Steps>
+
+</TabItem>
+
+</Tabs>
+
+## Qué establece Compendium durante activate
+
+```
+$ compendium env
+
+Environment variables:
+  NAME                     ACTION    VALUE
+  PYTHONHOME               unset
+  VIRTUAL_ENV              set       ~/.local/compendium/envs/<project>/venv
+  UV_PROJECT_ENVIRONMENT   set       ~/.local/compendium/envs/<project>/venv
+  LD_LIBRARY_PATH          prepend   ~/.local/compendium/languages/python/<ver>/lib   (Linux only)
+```
+
+Además, el directorio `bin/` del venv se antepone al `PATH` *antes* de los
+directorios de lenguajes y herramientas de Compendium. Después de activate,
+`python`, `python3`, `pip` y cualquier cosa que instale con
+`pip install --console-script` resuelven al venv por proyecto.
+
+| Variable                 | Por qué importa                                                                                                       |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| `VIRTUAL_ENV`            | La señal estándar de que está dentro de un venv. `pip` escribe aquí, `python` lo usa como `sys.prefix`.              |
+| `UV_PROJECT_ENVIRONMENT` | Le indica a uv que use el venv de Compendium en vez de crear un `.venv/` hermano. Sin él, `uv sync` crearía dos venvs. |
+| `PYTHONHOME`             | Forzado a desactivarse. Si un shell padre lo tenía apuntando a otra instalación, el Python activado importaría desde la stdlib equivocada. |
+| `LD_LIBRARY_PATH`        | Solo Linux. Apunta el cargador dinámico al `libpython*.so` incluido para que los módulos de extensión enlacen correctamente. |
+
+## El punto es el venv por proyecto
+
+`compendium install` crea el venv en
+`~/.local/compendium/envs/<project>/venv/` usando el Python fijado:
+
+```
+~/.local/compendium/envs/
+├── f1-race-replay/
+│   └── venv/
+│       ├── bin/python -> ../../../languages/python/3.13.13/bin/python3
+│       └── lib/python3.13/site-packages/
+└── safer/
+    └── venv/
+        └── ...
+```
+
+El binario del intérprete se comparte entre proyectos (una copia por
+versión fijada en `languages/python/<ver>/`); los paquetes instalados son
+por proyecto. `f1-race-replay` con `pandas 2.2.3` y `safer` con las
+herramientas de desarrollo que necesite nunca chocan.
+
+Sin `.venv/` junto a su código fuente. Sin archivo `pyenv local`. Sin la
+memoria muscular de `source .venv/bin/activate`.
+`source <(compendium activate)` es el único punto de entrada para todo en
+el proyecto.
+
+## Ciclo de vida del venv
+
+El venv se reconstruye automáticamente cuando cambia la versión de Python
+fijada:
+
+```
+$ # edite compendium.toml: python = "3.13.13" -> "3.14.5"
+$ compendium install
+ℹ  python version changed   venv recreated — reinstall packages
+```
+
+Compendium lee `pyvenv.cfg` para detectar el cambio de versión y recrea el
+venv contra el nuevo intérprete. Sus paquetes instalados no se trasladan.
+Se construyeron contra la ABI del Python anterior, y una instalación desde
+cero es el comportamiento correcto. Vuelva a ejecutar
+`pip install -r requirements.txt` o `uv sync`.
+
+Si quiere borrar y empezar de cero manualmente:
+
+```bash
+rm -rf ~/.local/compendium/envs/<project>/venv
+compendium install
+```
+
+## Trabajar con `pip`
+
+Después de activate, `pip` es el pip del venv. Flujo de trabajo estándar:
+
+```bash
+pip install -r requirements.txt
+pip install --upgrade some-package
+pip freeze > requirements.txt
+```
+
+Para instalar un paquete que además es un console script (`black`,
+`pytest`, `rich-cli`), cae en el `bin/` del venv que ya está en el `PATH`.
+Puede llamarlo directamente:
+
+```bash
+pip install black
+black src/
+```
+
+## Trabajar con `uv`
+
+Si fijó `uv` en `[tools]`, `uv sync` puebla el venv de Compendium porque
+`UV_PROJECT_ENVIRONMENT` apunta ahí:
+
+```bash
+uv sync                  # instala deps main + dev en el venv de Compendium
+uv sync --no-dev         # solo deps main
+uv add httpx             # añade a pyproject.toml + instala
+uv run pytest            # ejecuta en el mismo venv
+```
+
+`uv sync` *no* crea un `.venv/` hermano. Si ve aparecer uno, o bien
+activate no se ejecutó en este shell o algo eliminó
+`UV_PROJECT_ENVIRONMENT`.
+
+uv aun así intentará gestionar Python por su cuenta por defecto. Como
+`UV_PROJECT_ENVIRONMENT` está configurado, usa el intérprete del venv
+existente (el de Compendium) y omite su propia descarga. Puede dejar
+`uv python install` en paz.
+
+## Consideraciones
+
+### `[packages].pip` se parsea pero todavía no está conectado
+
+En v0.1, solo `[packages].vcpkg` dispara algún comportamiento de
+instalación. Escribir:
+
+```toml
+[packages]
+pip = "requirements.txt"
+```
+
+es legal e inofensivo, pero Compendium no ejecutará
+`pip install -r requirements.txt` por usted. Hágalo usted mismo después de
+activate. La clave está reservada para que futuras versiones de Compendium
+puedan conectarla; hoy sirve como documentación para lectores humanos y
+scripts de CI.
+
+### uv crearía su propio venv sin `UV_PROJECT_ENVIRONMENT`
+
+Por defecto `uv sync` crea `.venv/` junto a `pyproject.toml`. Eso anula el
+aislamiento por proyecto que Compendium acaba de establecer. Terminaría con
+dos venvs y confusión sobre cuál `pytest` se está ejecutando.
+
+Compendium establece `UV_PROJECT_ENVIRONMENT` en cada activate para apuntar
+a su propio venv, así que `uv sync` lo adopta. Si algo en su shell o direnv
+elimina esa variable, uv vuelve en silencio a su valor por defecto.
+`compendium env` y `echo $UV_PROJECT_ENVIRONMENT` son la comprobación
+rápida.
+
+### `PYTHONHOME` se fuerza a desactivar, a propósito
+
+Si alguna vez exportó `PYTHONHOME` para apuntar a otra instalación de
+Python (algunas configuraciones de SDK embebidos lo hacen), anula el
+`sys.prefix` del venv e importa la stdlib desde el lugar equivocado.
+Compendium lo desactiva en cada activate. Si necesita tenerlo configurado
+para un subproceso específico, configúrelo en línea (`PYTHONHOME=... my-tool`)
+en vez de exportarlo globalmente.
+
+### Python en `compendium.toml` vs `requires-python` en `pyproject.toml`
+
+Dos puntos de fijación, trabajos distintos:
+
+| Dónde                                 | Fija                                                            |
+| ------------------------------------- | --------------------------------------------------------------- |
+| `compendium.toml` → `[languages].python` | Qué *binario* de Python se instala y sobre qué corre el venv. |
+| `pyproject.toml` → `requires-python`     | La versión mínima de Python que su *código* declara como compatible. |
+
+`compendium.toml` es la fuente de verdad para "qué se instala".
+`requires-python` es para consumidores aguas abajo y para el resolver de
+uv. Fije ambos, y asegúrese de que `[languages].python` satisfaga
+`requires-python`. Compendium no comprueba esto hoy.
+
+### Extensiones que necesitan bibliotecas del sistema
+
+El Python fijado incluye su propio `libpython*.so` (Linux) o
+`Python.framework` (macOS), pero los paquetes con extensiones en C aún
+enlazan contra bibliotecas del sistema: `pyside6` necesita Qt, `psycopg2`
+necesita `libpq`, `lxml` necesita `libxml2`. Compendium no instala estas.
+Use el gestor de paquetes del sistema operativo, o elija la variante de
+wheel precompilado si existe (`pyside6-essentials`, `psycopg2-binary`,
+`lxml-wheels`).
+
+### El venv está en `~/.local/compendium/envs/`, no en el repositorio
+
+Las integraciones de IDE (VS Code, PyCharm) que detectan automáticamente
+`.venv/` en la raíz del proyecto no lo encontrarán. Apúntelas al venv
+explícitamente:
+
+```
+~/.local/compendium/envs/<project>/venv/bin/python
+```
+
+VS Code: "Python: Select Interpreter" → "Enter interpreter path".
+PyCharm: Settings → Python Interpreter → Add → Existing environment.
+
+### macOS no necesita `LD_LIBRARY_PATH`
+
+El Python incluido en macOS se construye con `@rpath` integrado; encuentra
+sus propias bibliotecas sin ayuda. Compendium solo antepone
+`LD_LIBRARY_PATH` en Linux. Si hace grep de `compendium env` en macOS y no
+lo ve, eso es correcto.
+
+## Lista de archivos
+
+<Tabs syncKey="pkg-mgr">
+
+<TabItem label="pip">
+
+```
+f1-race-replay/
+├── compendium.toml         # versión de python
+├── requirements.txt        # dependencias de pip
+├── main.py
+└── src/
+```
+
+Clone, `compendium install`, haga source de activate,
+`pip install -r requirements.txt`, ejecute.
+
+</TabItem>
+
+<TabItem label="uv">
+
+```
+safer/
+├── compendium.toml         # versión de python + uv + ruff
+├── pyproject.toml          # archivo de proyecto PEP 621
+├── uv.lock                 # grafo de dependencias bloqueado
+└── src/
+```
+
+Clone, `compendium install`, haga source de activate, `uv sync`, ejecute.
+
+</TabItem>
+
+</Tabs>
+
+## Problemas comunes
+
+La referencia consolidada está en
+[Solución de problemas](/es/reference/troubleshooting/). Para proyectos en
+Python, los reportes más frecuentes son:
+
+- `python: command not found` (no se hizo source de activate)
+- `pip install` cae en el site-packages del Python del sistema (`pip` se ejecutó antes de activate, o el pip del sistema lo está ensombreciendo)
+- `uv sync` creó un `.venv/` en el repositorio (`UV_PROJECT_ENVIRONMENT` no estaba configurado, o uv es anterior a 0.4)
+- `venv recreated — reinstall packages` aparece después de cada instalación (dos archivos `compendium.toml` en alcance, o cambios constantes de versión de Python)
+- `ModuleNotFoundError` para un módulo de la stdlib como `_ctypes` en Linux (`LD_LIBRARY_PATH` no incluye el `lib/` del Python fijado)
+- El IDE elige el intérprete equivocado (apúntelo explícitamente al `python` del venv)
+
+Consulte la [sección de Python](/es/reference/troubleshooting/#python) para las soluciones.

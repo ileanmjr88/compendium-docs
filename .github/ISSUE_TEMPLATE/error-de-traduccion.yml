@@ -1,0 +1,55 @@
+name: Error en la documentación en español
+description: Reporte un error de gramática, ortografía, traducción, registro o enlace en las páginas en español (/es/).
+title: "[ES] "
+labels: ["documentación", "español"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Gracias por ayudar a mejorar la documentación en español de Compendium.
+        Si prefiere enviar la corrección usted mismo, abra un pull request con la
+        plantilla agregando `?template=correccion-gramatical.md&expand=1` a la URL.
+  - type: input
+    id: pagina
+    attributes:
+      label: Página afectada
+      description: URL o ruta del archivo.
+      placeholder: "/es/getting-started/first-steps/  o  src/content/docs/es/faq.md"
+    validations:
+      required: true
+  - type: dropdown
+    id: tipo
+    attributes:
+      label: Tipo de error
+      options:
+        - Ortografía o tildes
+        - Gramática o concordancia
+        - Registro (debe ser usted)
+        - Término del glosario
+        - Traducción incorrecta o cambio de sentido
+        - Español de España en vez de latinoamericano
+        - Enlace roto
+        - Otro
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Texto actual (incorrecto)
+      description: Copie el texto tal como aparece ahora.
+    validations:
+      required: true
+  - type: textarea
+    id: sugerencia
+    attributes:
+      label: Corrección sugerida
+      description: ¿Cómo debería decir? Si es una elección de término, explique brevemente el porqué.
+    validations:
+      required: false
+  - type: checkboxes
+    id: confirmacion
+    attributes:
+      label: Confirmación
+      options:
+        - label: El error está en una página bajo `/es/` (no en la documentación en inglés).
+          required: true

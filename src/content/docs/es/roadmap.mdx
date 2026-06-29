@@ -1,0 +1,89 @@
+---
+title: Hoja de ruta
+description: Qué se incluye en v0.1, qué viene a continuación y qué se aplaza. Se actualiza a medida que los planes se concretan.
+---
+
+Esta página refleja lo que Compendium hace hoy frente a lo que está planeado
+para las próximas dos versiones.
+
+## v0.1 (actual)
+
+La base: fije un toolchain en `compendium.toml`, instálelo bajo
+`~/.local/compendium/`, actívelo con un solo comando de shell.
+
+**Lenguajes.** C y C++ (vía `gcc` y `clang`), Python, Node, Go y los
+compiladores cruzados embebidos `arm-none-eabi-gcc`, `aarch64-none-elf-gcc`
+y `riscv-none-elf-gcc`.
+
+**Herramientas.** Build (`cmake`, `ninja`, `ccache`, `pkg-config`, `m4`,
+`bison`), linters y formateadores (`golangci-lint`, `ruff`), gestores de
+paquetes (`vcpkg`, `uv`, `pnpm`), embebidos (`openocd`), herramientas de
+release (`goreleaser`) y `realpath`.
+
+Consulte [Herramientas disponibles](/es/reference/available-tools/) para la
+lista en vivo de versiones en el registro.
+
+**Gestores de paquetes.** `vcpkg` está conectado (directorio de instalación
+por proyecto, `VCPKG_ROOT` y `VCPKG_INSTALLED_DIR` exportados al activar).
+Otras claves en `[packages]` se parsean pero todavía no se consumen.
+
+**Entornos por proyecto.**
+
+- Python: `venv/` acotado al proyecto, `VIRTUAL_ENV` y `UV_PROJECT_ENVIRONMENT` exportados al activar.
+- Go: `GOPATH` y `GOBIN` acotados al proyecto, ambos en el `PATH` después de activate.
+
+**Comandos.** `install`, `activate`, `deactivate`, `env`, `status`,
+`versions`, `version`.
+
+**Registro.** Solo el registro público.
+
+**Plataformas.** macOS y Linux.
+
+## v0.2 (a continuación)
+
+Ampliar el soporte de sistemas de build de C/C++, añadir runtimes de
+lenguajes importantes, completar el conjunto de compiladores cruzados
+embebidos y mejorar la ergonomía para desarrolladores.
+
+- **Soporte de múltiples sistemas de build para C/C++**: Meson, Autotools,
+  Makefiles puros, b2 (Boost).
+- **Java** y sus herramientas de build.
+- **Rust** y su tooling.
+- **Toolchain ESP32 / Xtensa** (`xtensa-esp-elf-gcc`) — completa de forma
+  natural el conjunto de compiladores cruzados embebidos.
+- **Ejecutor de git hooks** — el ejecutor de hooks personalizados para
+  `[hooks]` en `compendium.toml`. La sección se parsea en v0.1 pero todavía
+  no se ejecuta nada.
+- **Auto-activación al cambiar de rama** — Compendium instala un git hook
+  post-checkout que ejecuta compendium activate cuando cambia de rama, para
+  que el entorno siga a su código
+- **`compendium doctor`** y mejores mensajes de error en toda la CLI.
+- **`compendium.lock`** — un nuevo lockfile versionado que fija versiones y
+  checksums exactos. `compendium install` lo respeta en ejecuciones
+  posteriores.
+- **`compendium verify`** — comprobación de reproducibilidad de que la caché
+  local coincide con el lockfile.
+
+## v0.3
+
+Control propio de la capa de runtime, más un gestor de paquetes de C/C++
+nativo de Compendium.
+
+- **Alternativa de gestor de bibliotecas de C/C++ integrado** — controlado
+  por configuración a través de `[deps.*]` en `compendium.toml`.
+- **Infraestructura de parches** para dependencias de C/C++ — declarados por
+  dependencia, aplicados en orden antes del build, falla de forma dura ante
+  conflictos, el contenido de los parches se incluye con hash en el lockfile
+  para reproducibilidad.
+- **Bun**: runtime de JavaScript que incluye su propio gestor de paquetes,
+  bundler y test runner. Una sola fijación en `[languages]` reemplaza a
+  `node` más un `[tools].pnpm` separado para los proyectos que lo adoptan por
+  completo.
+- **Zig** — lenguaje de sistemas adyacente a C/C++; `zig cc` también funciona
+  como compilador cruzado de C/C++.
+- **Kotlin** — lenguaje de la JVM, se apoya en el trabajo de Java de v0.2.
+- **ASP.NET** — solo Linux y macOS. Windows no está en la hoja de ruta
+  inmediata.
+- **`compendium clean`** — limpia el scratch de descargas y la caché de
+  manifiestos. No recolecta como basura las versiones de herramientas
+  instaladas — eso necesita el diseño de project-registry y viene después.

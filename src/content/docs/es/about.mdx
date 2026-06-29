@@ -1,0 +1,36 @@
+---
+title: Acerca de
+description: Entornos de desarrollo reproducibles, declarados en un solo archivo de configuración.
+---
+
+## Origen
+Este proyecto nació de la frustración de configurar un entorno de desarrollo nuevo cada vez que cambiaba entre mi MacBook y mi computadora con Linux, y de perder los primeros días en cada trabajo nuevo instalando las herramientas necesarias para trabajar con la base de código. A menudo la documentación estaba desactualizada, porque la configuración de las herramientas había cambiado desde la última actualización.
+
+Compendium surgió de esa frustración. El objetivo: configurar un proyecto en distintas computadoras con los mismos compiladores, runtimes y herramientas de apoyo fijados a una versión, de forma fácil y sin dolores de cabeza.
+
+## Qué es Compendium
+Compendium le permite declarar los compiladores, runtimes y herramientas de su proyecto en un solo archivo de configuración, fijados a versiones específicas. Un solo comando lo instala todo en un entorno aislado por proyecto.
+
+## Estado
+**CLI** &nbsp; ![Versión](https://img.shields.io/github/v/release/ileanmjr88/compendium?include_prereleases&style=for-the-badge) ![Último commit](https://img.shields.io/github/last-commit/ileanmjr88/compendium?style=for-the-badge) ![Issues abiertos](https://img.shields.io/github/issues/ileanmjr88/compendium?style=for-the-badge)
+
+**Registro** &nbsp; ![Actividad de commits](https://img.shields.io/github/commit-activity/m/ileanmjr88/compendium-registry?style=for-the-badge) ![Último commit](https://img.shields.io/github/last-commit/ileanmjr88/compendium-registry?style=for-the-badge)
+
+## Cómo está organizado el proyecto
+El proyecto tiene dos componentes:
+- [compendium](https://github.com/ileanmjr88/compendium) — la CLI (Go, GPL v3). Lee su configuración, consulta el registro e instala el entorno.
+- [compendium-registry](https://github.com/ileanmjr88/compendium-registry) — un índice de herramientas seleccionadas con binarios precompilados para macOS y Linux (CC0, haga fork libremente).
+
+## Alcance
+Compendium gestiona entornos de desarrollo por proyecto. No es un runtime de contenedores, ni un sistema de CI, ni un reemplazo de Docker cuando necesita aislamiento real a nivel del sistema operativo. Si su proyecto necesita una base de datos o un message broker corriendo localmente, use Docker Compose junto con Compendium: resuelven problemas distintos.
+
+## Mantenedor
+Creado por [Ilean Monterrubio Jr](https://ilean.me) ([@ileanmjr88](https://github.com/ileanmjr88)). Proyecto en solitario, desarrollado en abierto.
+
+## Cómo contribuir
+- **¿Encontró un error o tiene una solicitud de funcionalidad?** [Abra un issue](https://github.com/ileanmjr88/compendium/issues).
+- **¿Quiere añadir una herramienta al registro?** Se aceptan pull requests en [compendium-registry](https://github.com/ileanmjr88/compendium-registry).
+- **¿Preguntas?** [GitHub Discussions](https://github.com/ileanmjr88/compendium/discussions).
+
+## Privacidad
+Este sitio usa [Umami](https://umami.is) para analíticas respetuosas con la privacidad. Sin cookies, sin recopilación de datos personales.
