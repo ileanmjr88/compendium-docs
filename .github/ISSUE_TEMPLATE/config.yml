@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Errores de la CLI de Compendium
+    url: https://github.com/ileanmjr88/compendium/issues
+    about: Para errores de la herramienta de línea de comandos (no de la documentación).
+  - name: Preguntas y discusión
+    url: https://github.com/ileanmjr88/compendium/discussions
+    about: Para preguntas que no encajan en un issue o un pull request.

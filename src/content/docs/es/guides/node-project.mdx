@@ -1,0 +1,327 @@
+---
+title: Proyectos en Node
+description: Fije Node y su gestor de paquetes en compendium.toml para que npm install o pnpm install se resuelvan igual en cada laptop. Este sitio de documentación se construye así.
+---
+
+import { Aside, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+
+Fije la versión de Node y (opcionalmente) `pnpm`, luego ejecute sus
+comandos habituales del gestor de paquetes. `node_modules/` ya vive junto a
+su `package.json`, así que Compendium no añade otra capa de aislamiento. Su
+trabajo es asegurar que `node` y su gestor de paquetes sean exactamente las
+versiones que usted y la CI acordaron.
+
+```bash
+compendium install
+source <(compendium activate)
+npm install            # o: pnpm install
+npm run build          # o: pnpm build
+```
+
+El sitio de documentación que está leyendo incluye su propio
+`compendium.toml` y se construye así. Esta guía recorre esa configuración.
+
+## Los archivos
+
+<Tabs syncKey="pkg-mgr">
+
+<TabItem label="npm">
+
+<Steps>
+
+1. **`compendium.toml`** : versión de Node, nada más hace falta.
+
+   ```toml
+   [compendium]
+   name = "compendium-docs"
+   version = "0.1.0"
+   min_compendium = "0.1.0"
+
+   [registry]
+   source = "public"
+
+   [languages]
+   node = "22.22.2"
+
+   [packages]
+   npm = "package.json"
+   ```
+
+   `npm` viene dentro del tarball de Node, así que no lo fija por separado.
+   Fijar Node fija npm también. La clave `[packages].npm` hoy es
+   documentación (el parser la acepta, pero la ruta de instalación no
+   ejecuta `npm install` automáticamente). Vea
+   [Consideraciones](#packagesnpm-se-parsea-pero-todavía-no-está-conectado).
+
+2. **`package.json`** : npm estándar, nada específico de Compendium.
+
+   ```json
+   {
+     "name": "compendium-docs",
+     "type": "module",
+     "version": "0.0.1",
+     "scripts": {
+       "dev": "astro dev",
+       "build": "astro build",
+       "preview": "astro preview"
+     },
+     "dependencies": {
+       "@astrojs/starlight": "^0.39.2",
+       "astro": "^6.2.2",
+       "sharp": "^0.34.5"
+     }
+   }
+   ```
+
+3. **`package-lock.json`** : generado por `npm install`, haga commit.
+
+   Bloquea cada dependencia transitiva. Mismo lockfile + mismo Node = el
+   mismo `node_modules/` en cada máquina.
+
+</Steps>
+
+</TabItem>
+
+<TabItem label="pnpm">
+
+<Steps>
+
+1. **`compendium.toml`** : versión de Node más `pnpm` en `[tools]`.
+
+   ```toml
+   [compendium]
+   name = "my-app"
+   version = "0.1.0"
+   min_compendium = "0.1.0"
+
+   [registry]
+   source = "public"
+
+   [languages]
+   node = "22.22.2"
+
+   [tools]
+   pnpm = "10.33.4"
+   ```
+
+   Fijar `pnpm` en `[tools]` significa que la CI y cada laptop obtienen la
+   misma versión. pnpm se instala en
+   `~/.local/compendium/tools/pnpm/<ver>/` y queda en el `PATH` después de
+   activate. Evita Corepack por completo.
+
+2. **`package.json`** : estándar.
+
+   ```json
+   {
+     "name": "my-app",
+     "type": "module",
+     "scripts": {
+       "dev": "vite",
+       "build": "vite build"
+     }
+   }
+   ```
+
+3. **`pnpm-lock.yaml`** : generado por `pnpm install`, haga commit.
+
+</Steps>
+
+</TabItem>
+
+</Tabs>
+
+## Qué establece Compendium durante activate
+
+Casi nada en variables de entorno, y ese es el punto. Node no tiene un
+`GOPATH` ni un `VIRTUAL_ENV`. `node_modules/` ya es por proyecto por el
+simple hecho de ser un directorio junto a `package.json`. Así que
+`compendium env` está vacío para los proyectos en Node:
+
+```
+$ compendium env
+
+Environment variables:
+  NAME  ACTION  VALUE
+```
+
+El encabezado sin cuerpo es correcto: no se establece ninguna variable de
+entorno específicamente para Node. Lo que sí hace activate es anteponer los
+directorios de las herramientas al `PATH` para que el `node`, `npm` y
+(opcionalmente) `pnpm` correctos queden accesibles. `compendium env` no
+muestra los cambios en el PATH; ese es el trabajo del script de activate.
+
+| Qué queda en el `PATH` después de activate | De dónde viene                                                       |
+| ------------------------------- | -------------------------------------------------------------------------------- |
+| `node`, `npm`, `npx`            | `~/.local/compendium/languages/node/<ver>/bin/`. `npm` viene dentro de Node.     |
+| `pnpm`                          | `~/.local/compendium/tools/pnpm/<ver>/bin/`. Solo cuando `[tools].pnpm` está fijado. |
+| Binarios del proyecto           | `node_modules/.bin/` (npm/pnpm los pone ahí; ambos también los resuelven vía `npm run`/`pnpm <script>`). |
+
+Compendium *no* establece `NODE_PATH`, *no* reubica la caché de npm y *no*
+gestiona un `node_modules/` por proyecto. El algoritmo de resolución
+estándar de Node ya le da aislamiento por proyecto. El único trabajo de
+Compendium es asegurar que `which node` resuelva a la versión que fijó.
+
+## Aislamiento por proyecto
+
+```
+your-app/
+└── node_modules/         # ya es por proyecto, Node se encarga de esto
+```
+
+```
+~/.local/compendium/
+├── languages/node/22.22.2/    # compartido entre todos los proyectos fijados a esta versión
+└── tools/pnpm/10.33.4/        # compartido entre todos los proyectos fijados a esta versión
+```
+
+El proyecto A fijado a Node 22 y el proyecto B fijado a Node 20 obtienen
+cada uno su propia instalación de Node (una copia por versión,
+deduplicada entre proyectos). Dentro de cada proyecto, npm/pnpm gestiona
+`node_modules/`.
+
+## Trabajar con `npx` y `node_modules/.bin/`
+
+Dentro de un proyecto activado, `npx <pkg>` y `npm run <script>` funcionan
+con normalidad. `npx` usa el `node` fijado, y `npm run` pone
+`node_modules/.bin/` en el `PATH` mientras dura el script. Sin cambios
+específicos de Compendium.
+
+```bash
+npm install --save-dev typescript
+npx tsc --init           # usa el node de Compendium, el typescript del proyecto
+```
+
+## `npm config` y el prefijo global
+
+Por defecto, `npm install -g` pone los binarios en el directorio `bin/`
+propio de la instalación de Node, que en Compendium es
+`~/.local/compendium/languages/node/<ver>/bin/`. Ese directorio está en el
+`PATH` después de activate, así que los paquetes instalados globalmente sí
+funcionan, pero están atados a la versión de Node fijada. Dos consecuencias:
+
+1. Si sube `[languages].node`, la nueva instalación de Node empieza vacía.
+   Tendrá que reinstalar cualquier paquete global.
+2. Distintos proyectos fijados a distintas versiones de Node no comparten
+   los globales.
+
+Para herramientas que quiere estandarizar en todo el equipo, fíjelas en
+`[tools]` (`pnpm`, `goreleaser`, etc.) o como `devDependency` en
+`package.json`. Ambas sobreviven a las subidas de versión de Node.
+
+## Consideraciones
+
+### `[packages].npm` se parsea pero todavía no está conectado
+
+En v0.1, solo `[packages].vcpkg` dispara algún comportamiento de
+instalación. Escribir:
+
+```toml
+[packages]
+npm = "package.json"
+```
+
+es legal e inofensivo, pero Compendium no ejecutará `npm install` por usted.
+Hágalo usted mismo después de activate. La clave está reservada para que
+futuras versiones de Compendium puedan conectarla; hoy sirve como
+documentación.
+
+### Versión de Node en `compendium.toml` vs `engines.node` en `package.json`
+
+Dos puntos de fijación, trabajos distintos:
+
+| Dónde                              | Fija                                                          |
+| ---------------------------------- | ------------------------------------------------------------- |
+| `compendium.toml` → `[languages].node` | Qué *binario* de Node se instala en cada laptop y runner de CI. |
+| `package.json` → `engines.node`        | La versión mínima de Node que su *paquete* declara soportar, para consumidores aguas abajo y advertencias de `npm publish`. |
+
+Fije ambos. Asegúrese de que `[languages].node` satisfaga `engines.node`;
+Compendium no comprueba esto hoy.
+
+### Corepack y `packageManager` quedan evitados
+
+Node reciente incluye Corepack, que lee el campo `packageManager` en
+`package.json` y descarga sobre la marcha un pnpm/yarn que coincida. Eso
+duplica lo que Compendium está haciendo (fijar un gestor de paquetes) e
+introduce una segunda ruta de descarga que no queda registrada en
+`compendium.toml`.
+
+Fije pnpm en `[tools]` en su lugar, y o bien omita `packageManager` de
+`package.json` o configúrelo a la misma versión. Si ambos discrepan, la
+fijación de Compendium gana en el `PATH`, pero el shim de Corepack todavía
+puede interceptar si llega primero. La configuración más limpia: fijar en
+`[tools]`, dejar `packageManager` fuera.
+
+Yarn y Bun no están en el registro hoy. Si los necesita, instálelos vía
+Corepack (Yarn) o su propio instalador (Bun) fuera de Compendium. No serán
+reproducibles entre máquinas de la forma en que sí lo es `[tools].pnpm`.
+
+### La caché de npm es global
+
+`~/.npm` se comparte entre todos los proyectos de su máquina, sin importar
+qué entorno de Compendium esté activo. Está bien. La caché es direccionada
+por contenido, así que distintos proyectos en distintas versiones de Node
+no entran en conflicto. Si quiere una caché limpia,
+`npm cache clean --force` o configure `npm_config_cache` en su shell.
+
+### `node-gyp` y módulos nativos
+
+Los paquetes con código nativo (`better-sqlite3`, `sharp`, `node-sass`)
+invocan `node-gyp`, que llama al toolchain de C++ del sistema, no al de
+Compendium. En macOS eso significa las Xcode Command Line Tools; en Linux
+significa `build-essential`. Compendium fija Node y su gestor de paquetes,
+pero no fija el toolchain de C++ que usa `node-gyp` a menos que también
+fije `clang` o `gcc` en `[languages]` y el script de build del paquete
+respete `CC`/`CXX`. La mayoría no lo hace, así que la mayoría de los builds
+nativos siguen tomando lo que el host tenga.
+
+Si el build de un módulo nativo sigue fallando, compruebe si hay un binario
+precompilado disponible (`sharp` los incluye; `node-sass` está obsoleto en
+favor de `sass`, que es JS puro).
+
+## Lista de archivos
+
+<Tabs syncKey="pkg-mgr">
+
+<TabItem label="npm">
+
+```
+your-app/
+├── compendium.toml       # versión de node
+├── package.json          # metadatos de npm + scripts
+├── package-lock.json     # grafo de dependencias bloqueado
+└── src/
+```
+
+Clone, `compendium install`, haga source de activate, `npm install`, ejecute.
+
+</TabItem>
+
+<TabItem label="pnpm">
+
+```
+your-app/
+├── compendium.toml       # versión de node + pnpm
+├── package.json
+├── pnpm-lock.yaml
+└── src/
+```
+
+Clone, `compendium install`, haga source de activate, `pnpm install`, ejecute.
+
+</TabItem>
+
+</Tabs>
+
+## Problemas comunes
+
+La referencia consolidada está en
+[Solución de problemas](/es/reference/troubleshooting/). Para proyectos en
+Node, los reportes más frecuentes son:
+
+- `node: command not found` (no se hizo source de activate)
+- `npm install` usa un Node distinto al fijado (un `.nvmrc`, Volta u otro shim está antes en el `PATH`)
+- Corepack intenta descargar un pnpm distinto (`packageManager` en `package.json` no coincide con `[tools].pnpm`)
+- La instalación global cae en el lugar equivocado (`npm config get prefix` sobrescrito por `~/.npmrc` o `NPM_CONFIG_PREFIX`)
+- El rebuild de un módulo nativo falla tras subir la versión de Node (desajuste de ABI, ejecute `rm -rf node_modules`)
+
+Consulte la [sección de Node](/es/reference/troubleshooting/#node) para las soluciones.

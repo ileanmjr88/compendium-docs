@@ -1,0 +1,381 @@
+---
+title: Proyectos en C/C++
+description: Configure un proyecto en C o C++ con Compendium, vcpkg y presets de CMake. El mismo build en macOS y Linux.
+---
+
+import { Aside, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+
+Un `compendium.toml`, un preset de CMake, cuatro comandos. El mismo build en
+macOS y Linux. Sin Docker, sin shell scripts, sin "funciona en mi máquina".
+
+```bash
+compendium install
+source <(compendium activate)
+cmake --preset compendium
+cmake --build build
+```
+
+Esta guía recorre los archivos que necesita, qué establece Compendium en el
+entorno y las consideraciones de plataforma que sorprenden a la mayoría la
+primera vez.
+
+## Los archivos
+
+<Steps>
+
+1. **`compendium.toml`** : toolchain y versiones de herramientas.
+
+   ```toml
+   [compendium]
+   name = "my-project"
+   version = "0.1.0"
+   min_compendium = "0.1.0"
+
+   [registry]
+   source = "public"
+
+   [languages]
+   cpp = "clang@22.1.2"
+   # cpp = "gcc@13.2.0-2"    # solo Linux; descomente para cambiar de toolchain
+
+   [tools]
+   cmake = "4.3.1"
+   ninja = "1.13.2"
+   vcpkg = "2026-02-21"
+   ccache = "4.13.2"
+
+   [packages]
+   vcpkg = "vcpkg.json"
+   ```
+
+   Fije el compilador, las herramientas de build y el gestor de paquetes
+   una vez. Cada `compendium install` resuelve a las mismas versiones.
+
+2. **`vcpkg.json`** : dependencias de bibliotecas de C/C++.
+
+   ```json
+   {
+     "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+     "name": "my-project",
+     "version-string": "0.1.0",
+     "dependencies": [
+       "spdlog",
+       "fmt",
+       "gtest"
+     ],
+     "builtin-baseline": "23dc124705fcac41cf35c33dd9541f5094a9c19f"
+   }
+   ```
+
+   `builtin-baseline` fija la instantánea del registro de vcpkg, así que las
+   versiones de las bibliotecas son reproducibles entre máquinas.
+   Actualícelo de forma deliberada, no por accidente.
+
+3. **`vcpkg-configuration.json`** : fija el registro upstream de vcpkg.
+
+   ```json
+   {
+     "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg-configuration.schema.json",
+     "default-registry": {
+       "kind": "git",
+       "baseline": "23dc124705fcac41cf35c33dd9541f5094a9c19f",
+       "repository": "https://github.com/microsoft/vcpkg"
+     },
+     "registries": []
+   }
+   ```
+
+   La misma cadena de baseline en ambos archivos. Juntos hacen que vcpkg sea
+   determinista.
+
+4. **`CMakePresets.json`** : conecta todo.
+
+   ```json
+   {
+     "version": 3,
+     "configurePresets": [
+       {
+         "name": "base",
+         "hidden": true,
+         "generator": "Ninja",
+         "binaryDir": "${sourceDir}/build",
+         "cacheVariables": {
+           "VCPKG_INSTALLED_DIR": "$env{VCPKG_INSTALLED_DIR}",
+           "CMAKE_C_COMPILER_LAUNCHER": "ccache",
+           "CMAKE_CXX_COMPILER_LAUNCHER": "ccache"
+         }
+       },
+       {
+         "name": "compendium",
+         "displayName": "Compendium (managed toolchain, Debug)",
+         "inherits": "base",
+         "cacheVariables": {
+           "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+           "CMAKE_C_COMPILER": "$env{CC}",
+           "CMAKE_CXX_COMPILER": "$env{CXX}",
+           "CMAKE_BUILD_TYPE": "Debug"
+         },
+         "environment": {
+           "CXXFLAGS": "$penv{CXXFLAGS}",
+           "LDFLAGS": "$penv{LDFLAGS}",
+           "LIBRARY_PATH": "$penv{LIBRARY_PATH}",
+           "LD_LIBRARY_PATH": "$penv{LD_LIBRARY_PATH}",
+           "VCPKG_INSTALLED_DIR": "$penv{VCPKG_INSTALLED_DIR}"
+         }
+       }
+     ],
+     "buildPresets": [
+       { "name": "compendium", "configurePreset": "compendium" }
+     ]
+   }
+   ```
+
+   Dos presets: un `base` oculto para la configuración compartida, y
+   `compendium` para el toolchain gestionado. El mismo preset funciona en
+   Linux y macOS: las diferencias de plataforma viven en las variables de
+   entorno, no en el preset.
+
+   El bloque `environment` reenvía las variables exportadas por Compendium
+   (`$penv{...}` es el valor del shell padre) al build. Sin esto, CMake
+   configura sin problemas pero las invocaciones reales del compilador
+   pierden `CXXFLAGS` y `LDFLAGS`.
+
+5. **`CMakeLists.txt`** : CMake estándar, nada específico de Compendium.
+
+   ```cmake
+   cmake_minimum_required(VERSION 3.21)
+   project(my-project VERSION 0.1.0 LANGUAGES CXX)
+
+   set(CMAKE_CXX_STANDARD 20)
+   set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+   find_package(spdlog CONFIG REQUIRED)
+   find_package(fmt CONFIG REQUIRED)
+
+   add_executable(my-app src/main.cpp)
+   target_link_libraries(my-app PRIVATE spdlog::spdlog fmt::fmt)
+   ```
+
+   El archivo de toolchain de vcpkg hace que `find_package` funcione
+   automáticamente. Sin rutas de include manuales. Sin rutas de bibliotecas
+   manuales.
+
+</Steps>
+
+## Qué establece Compendium durante activate
+
+`source <(compendium activate)` exporta estas para el proyecto. El conjunto
+exacto depende del compilador (clang vs gcc) y de la plataforma.
+
+| Variable                 | Se establece cuando                  | Propósito                                                        |
+| ------------------------ | ------------------------------------ | ---------------------------------------------------------------- |
+| `CC`                     | lenguaje C/C++ declarado             | Ruta del binario del compilador de C                            |
+| `CXX`                    | lenguaje C/C++ declarado             | Ruta del binario del compilador de C++                          |
+| `COMPENDIUM_CC_CXX_DIR`  | lenguaje C/C++ declarado             | Raíz de instalación del compilador                              |
+| `COMPENDIUM_DEBUGGER`    | binario de depurador presente        | Ruta a `lldb-dap` (clang) o `gdb` (gcc)                         |
+| `VCPKG_ROOT`             | `[tools].vcpkg` declarado            | Instalación de vcpkg                                            |
+| `VCPKG_INSTALLED_DIR`    | `[packages].vcpkg` declarado         | Árbol de instalación de vcpkg por proyecto                     |
+| `PKG_CONFIG_PATH`        | `[packages].vcpkg` declarado         | Antepuesto; encuentra los archivos pkg-config dentro del directorio vcpkg del proyecto |
+| `VCPKG_DISABLE_METRICS`  | `[packages].vcpkg` declarado         | Desactiva la telemetría de vcpkg                               |
+| `PATH`                   | Siempre                              | Directorios bin de herramientas de Compendium, antepuestos      |
+| `SDKROOT`                | clang, macOS                         | `$(xcrun --show-sdk-path)`                                       |
+| `CXXFLAGS`               | clang, macOS                         | `-nostdinc++ -isystem $SDKROOT/usr/include/c++/v1`               |
+| `CXXFLAGS`               | clang, Linux                         | `-stdlib=libc++`                                                 |
+| `LDFLAGS`                | clang, Linux                         | `-stdlib=libc++ -fuse-ld=lld -Wl,-rpath,<libDir>`                |
+| `LIBRARY_PATH`           | clang o gcc, Linux                   | Antepuesto; apunta el linker a las bibliotecas incluidas        |
+
+CMake lee `CC`, `CXX` y `VCPKG_ROOT` del entorno, así que el preset solo
+hace referencia a `$env{...}`. Sin rutas hardcodeadas en ningún lado.
+
+## Aislamiento por proyecto
+
+Cada proyecto obtiene su propio árbol de instalación de vcpkg:
+
+```
+~/.local/compendium/envs/
+├── my-project/
+│   └── vcpkg-installed/    # bibliotecas construidas para este proyecto
+└── other-project/
+    └── vcpkg-installed/    # versiones distintas, sin conflicto
+```
+
+El proyecto A con spdlog 1.14.0 y el proyecto B con spdlog 1.17.0 coexisten.
+El binario del compilador se comparte (una copia en
+`languages/clang/<ver>/`); las bibliotecas instaladas son por proyecto.
+
+## Añadir una biblioteca
+
+Añádala a `vcpkg.json`, luego reconstruya:
+
+```bash
+# Edite vcpkg.json: añada "nlohmann-json" a dependencies
+rm -rf build
+cmake --preset compendium
+cmake --build build
+```
+
+vcpkg obtiene el código fuente, lo construye con el compilador de Compendium
+y lo instala en el `vcpkg-installed/` del proyecto.
+`find_package(nlohmann_json CONFIG REQUIRED)` simplemente funciona.
+
+## Consideraciones
+
+### GCC en macOS no es compatible. Use Clang.
+
+Si pone `gcc` en `[languages]` en macOS, Compendium lo instala pero imprime
+una advertencia al activar y no exporta variables de entorno de GCC. La
+razón no es de política: el GCC precompilado de xPack para macOS apunta al
+SDK de macOS 11, y su `include-fixed/stdio.h` incluido no parsea contra los
+headers del sistema de macOS 13+. Subir la versión de GCC no lo arregla; el
+desajuste de SDK está integrado en el build.
+
+Todo el ecosistema de macOS (frameworks, runtime de Objective-C,
+interoperabilidad con Swift) está construido en torno a Clang. Úselo.
+
+```toml
+# macOS: compatible
+[languages]
+cpp = "clang@22.1.2"
+
+# Linux: ambos funcionan. GCC es la elección común para builds de compliance.
+[languages]
+cpp = "gcc@13.2.0"
+```
+
+### Clang en macOS necesita las Command Line Tools
+
+Compendium ejecuta `xcrun --show-sdk-path` durante activate para establecer
+`SDKROOT`. Si las Xcode Command Line Tools no están instaladas, la ruta del
+SDK está vacía y verá esto cuando CMake configura:
+
+```
+C compiler cannot create executables
+```
+
+Arréglelo una vez:
+
+```bash
+xcode-select --install
+source <(compendium deactivate)
+source <(compendium activate)
+```
+
+### Linux y macOS manejan libc++ de forma distinta
+
+Mismo compilador, distinta historia de runtime. Compendium se lo oculta,
+pero vale la pena saberlo si alguna vez mira los flags.
+
+<Tabs>
+
+<TabItem label="Linux">
+
+Compendium provee el compilador **y** el runtime. Las herramientas del
+sistema en Linux usan libstdc++ (el runtime de GCC), así que añadir el
+libc++ de LLVM no entra en conflicto. Son bibliotecas completamente
+separadas.
+
+```
+CXXFLAGS = -stdlib=libc++
+LDFLAGS  = -stdlib=libc++ -fuse-ld=lld -Wl,-rpath,<libDir>
+LIBRARY_PATH = <libDir>:$LIBRARY_PATH
+```
+
+</TabItem>
+
+<TabItem label="macOS">
+
+Compendium provee el compilador. Apple provee el runtime. Cada binario de
+macOS usa libc++. Añadir una segunda versión envenena el proceso a través
+de `DYLD_LIBRARY_PATH`, que en macOS afecta a cada binario del shell, no
+solo al suyo.
+
+```
+SDKROOT  = $(xcrun --show-sdk-path)
+CXXFLAGS = -nostdinc++ -isystem $SDKROOT/usr/include/c++/v1
+```
+
+Compendium deliberadamente **no** establece `LDFLAGS`, `LIBRARY_PATH` ni
+`DYLD_LIBRARY_PATH` en macOS.
+
+</TabItem>
+
+</Tabs>
+
+### vcpkg cachea de forma agresiva
+
+vcpkg mantiene una caché de binarios en `~/.cache/vcpkg/` y reutiliza
+archivos `.a` compilados entre proyectos. Cuando cambia la versión del
+compilador o los flags, esa caché le devuelve binarios construidos contra
+los flags antiguos. Los errores de enlace con símbolos del estilo
+`__do_string_hash[abi:nqe220102]` son el síntoma habitual.
+
+Cuando cambie versiones de toolchain o flags, elimine ambas cachés:
+
+```bash
+rm -rf ~/.cache/vcpkg
+rm -rf build vcpkg-installed
+cmake --preset compendium
+cmake --build build
+```
+
+### La sintaxis `@` fija el compilador
+
+En `[languages]`, escriba el valor como `<compiler>@<version>` cuando el
+lenguaje tiene varios compiladores posibles:
+
+```toml
+[languages]
+cpp = "clang@22.1.2"    # instala clang 22.1.2 para C++
+cpp = "gcc@13.2.0"      # instala gcc 13.2.0 para C++
+```
+
+El parser divide en `@`, instala el compilador nombrado en la versión
+solicitada en `~/.local/compendium/languages/<compiler>/<version>/`, y
+conecta sus variables de entorno al activar. El compilador no se declara en
+ningún otro lado; la forma `@` es la única declaración.
+
+Si escribe `cpp = "1.0.0"` sin un `@`, Compendium instala una entrada de
+lenguaje llamada literalmente `cpp` desde el registro, que normalmente no es
+lo que quiere. Empareje siempre el lenguaje con un compilador vía `@`.
+
+### `[languages].c` vs `[languages].cpp`
+
+Ambas claves se aceptan. Para un proyecto solo de C use `c`. Para un
+proyecto de C++ use `cpp` (un solo compilador incluye ambos drivers, así que
+`clang` y `gcc` sirven para ambos). Si establece tanto `c` como `cpp`,
+Compendium instala solo el compilador de `c` y advierte. Elija uno.
+
+## Lista de archivos
+
+Un proyecto en C/C++ listo para Compendium tiene estos archivos en la raíz
+del repositorio:
+
+```
+my-project/
+├── compendium.toml              # definición del toolchain
+├── CMakeLists.txt               # CMake estándar
+├── CMakePresets.json            # preset de compendium
+├── vcpkg.json                   # dependencias de bibliotecas
+├── vcpkg-configuration.json     # fija el baseline del registro de vcpkg
+└── src/
+    └── main.cpp
+```
+
+Clone el repositorio, ejecute `compendium install`, haga source de activate,
+compile. El mismo resultado en una laptop nueva, un runner de CI o la
+máquina de un colaborador.
+
+## Problemas comunes
+
+La referencia consolidada está en
+[Solución de problemas](/es/reference/troubleshooting/). Para proyectos en
+C/C++, los reportes más frecuentes son:
+
+- `<command>: command not found` tras instalar — no se ejecutó `source <(compendium activate)`
+- `Could not find toolchain file` — misma causa raíz; compruebe `$VCPKG_ROOT`
+- `C compiler cannot create executables` en macOS — Xcode Command Line Tools no instaladas
+- fallo de bootstrap de vcpkg, caché de binarios desactualizada, o CMake tomando el clang del host
+
+Consulte la [sección de C y C++](/es/reference/troubleshooting/#c-y-c) para
+las soluciones. Las consideraciones de GCC en macOS, libc++ y Command Line
+Tools viven en la misma sección.

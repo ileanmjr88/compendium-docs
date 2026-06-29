@@ -1,0 +1,239 @@
+---
+title: Proyectos en Go
+description: Fije el toolchain de Go, limite los binarios instalados al proyecto y mantenga los builds del equipo idénticos. El propio Compendium se construye así.
+---
+
+import { Aside, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+
+Fije Go y sus linters, obtenga un `GOPATH` acotado al proyecto y deje de
+discutir si el error es real o "solo pasa en mi máquina".
+
+```bash
+compendium install
+source <(compendium activate)
+go build ./...
+go test ./...
+```
+
+El propio Compendium incluye su propio `compendium.toml` y se construye así.
+Esta guía recorre esa configuración.
+
+## Los archivos
+
+<Steps>
+
+1. **`compendium.toml`** : versión de Go y linters.
+
+   ```toml
+   [compendium]
+   name = "my-go-project"
+   version = "0.1.0"
+   min_compendium = "0.1.0"
+
+   [registry]
+   source = "public"
+
+   [languages]
+   go = "1.26.1"
+
+   [tools]
+   golangci-lint = "2.11.4"
+
+   [packages]
+   go = "go.mod"
+   ```
+
+   Fije el toolchain de Go y cualquier herramienta que ejecute su CI. Las
+   mismas versiones en cada laptop y en cada runner.
+
+2. **`go.mod`** : estándar, generado por el propio Go.
+
+   ```bash
+   go mod init github.com/you/my-go-project
+   ```
+
+   Compendium no toca `go.mod`. Sigue siendo la fuente de verdad para las
+   dependencias y la versión mínima de Go que requiere su *código*. La
+   versión en `compendium.toml` es la que se instala; la directiva `go`
+   en `go.mod` es la que piden sus módulos.
+
+3. **`Makefile`** (opcional pero recomendado) : atajos para el ciclo habitual.
+
+   ```make
+   build:
+   	go build -o bin/my-app ./cmd/my-app
+
+   test:
+   	go test -v ./...
+
+   lint:
+   	golangci-lint run
+   ```
+
+   Nada aquí hace referencia a Compendium. Después de activate, `go` y
+   `golangci-lint` están en el `PATH` y estos targets funcionan.
+
+</Steps>
+
+## Qué establece Compendium durante activate
+
+```
+$ compendium env
+
+Environment variables:
+  NAME                    ACTION   VALUE
+  GOROOT                  set      ~/.local/compendium/languages/go/1.26.1
+  GOTOOLCHAIN             set      local
+  GOPATH                  set      ~/.local/compendium/envs/my-go-project/go
+  GOBIN                   set      ~/.local/compendium/envs/my-go-project/go/bin
+```
+
+Además, se antepone al `PATH` el directorio del binario de Go gestionado y
+el `go/bin/` por proyecto, de modo que los binarios instalados con
+`go install` quedan accesibles como comandos normales dentro del shell del
+proyecto.
+
+| Variable      | Valor                                                            | Por qué importa                                                                |
+| ------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `GOROOT`      | `~/.local/compendium/languages/go/<ver>`                         | Le indica a las herramientas de Go qué instalación de `go` usar. Fijada por `compendium.toml`. |
+| `GOTOOLCHAIN` | `local`                                                          | Evita que Go descargue en silencio una versión distinta cuando `go.mod` pide una. Obtiene la versión que fijó, punto. |
+| `GOPATH`      | `~/.local/compendium/envs/<project>/go`                          | Por proyecto. `go install` y `go get` escriben los binarios aquí, no en `~/go/bin`. |
+| `GOBIN`       | `<GOPATH>/bin`                                                   | Donde quedan los binarios instalados. Ya está en el `PATH` después de activate. |
+
+## El punto es el `GOPATH` por proyecto
+
+Por defecto, `go install golang.org/x/tools/cmd/stringer@latest` deja un
+binario en `~/go/bin/`. Dos consecuencias:
+
+1. Todos los proyectos comparten el mismo `stringer`, sea cual sea la
+   versión que se instaló de último.
+2. `~/go/bin/` acumula binarios que dejó de usar hace años.
+
+Compendium acota el `GOPATH` por proyecto. `go install` dentro de un
+proyecto escribe en `~/.local/compendium/envs/<project>/go/bin/`, que está
+en el `PATH` solo mientras ese proyecto está activado. El proyecto A y el
+proyecto B pueden instalar versiones incompatibles de la misma herramienta
+sin pisarse entre sí.
+
+La caché de módulos (`~/go/pkg/mod`) *no* es por proyecto. Está bien; la
+caché es direccionada por contenido, así que que varios proyectos la
+compartan es una ventaja. Si quiere acotarla también, configure
+`GOMODCACHE` manualmente.
+
+## `GOTOOLCHAIN=local` merece una mención
+
+Los módulos modernos de Go pueden fijar una versión de toolchain
+(`go 1.23.4` en `go.mod`). Por defecto, si tiene `go 1.22.0` instalado y
+`go.mod` dice `go 1.23.4`, el comando `go` descarga 1.23.4 en segundo plano
+y la usa. Eso anula el sentido de fijar el toolchain en `compendium.toml`.
+
+Establecer `GOTOOLCHAIN=local` (lo que Compendium hace al activar)
+desactiva esa descarga automática. El toolchain que fijó es el toolchain
+que obtiene. Si `go.mod` pide algo más nuevo y la versión local no puede
+satisfacerlo, el build falla de forma ruidosa en vez de cambiar en silencio.
+
+Si quiere subir el toolchain, edite `compendium.toml` y ejecute
+`compendium install`. Una sola fuente de verdad.
+
+## Consideraciones
+
+### Compendium fija el toolchain; `go.mod` declara los requisitos de lenguaje
+
+Dos puntos de fijación, trabajos distintos:
+
+| Dónde                           | Fija                                            |
+| ------------------------------- | ----------------------------------------------- |
+| `compendium.toml` → `[languages].go` | Qué *binario* de Go se instala.            |
+| `go.mod` → directiva `go`       | La versión mínima de lenguaje que usa su código. |
+| `go.mod` → directiva `toolchain` | El toolchain que `go.mod` *preferiría* (ignorado cuando `GOTOOLCHAIN=local`). |
+
+Para un proyecto donde Compendium es la fuente de verdad del equipo,
+establezca la versión en `compendium.toml` para que coincida con la que
+quiere que todos usen, y deje que la directiva `go` de `go.mod` declare la
+línea base del lenguaje. La directiva `toolchain` no importa dentro del
+entorno activado.
+
+### Las versiones de lint y de herramientas importan tanto como la de Go
+
+`golangci-lint` incluye un conjunto distinto de analizadores en cada
+versión. Una CI que ejecuta `golangci-lint@2.11.4` y una laptop que ejecuta
+lo que el gestor de paquetes haya querido instalar no se pondrán de acuerdo
+sobre qué está roto. Fije cada herramienta que toca la CI, no solo Go.
+
+Dónde se fija cada herramienta depende de si el registro la tiene:
+
+- **En el registro** (`golangci-lint`, `goreleaser` y cualquier cosa
+  listada en [Herramientas disponibles](/es/reference/available-tools/)):
+  añádala bajo `[tools]` en `compendium.toml`.
+- **Fuera del registro** (`stringer`, `mockgen`, `go-licenses` y la mayoría
+  de los binarios `golang.org/x/tools/cmd/...`): instálelos con
+  `go install <pkg>@<version>` después de activate. Quedan en el `GOBIN`
+  del proyecto y viajan con el entorno del proyecto. Fije la versión en su
+  Makefile o script de CI para que cada máquina obtenga la misma.
+
+### La caché de módulos se comparte, la caché de build se comparte
+
+`GOMODCACHE` y `GOCACHE` no se tocan. Ambas apuntan por defecto a
+ubicaciones bajo `~/.cache/go-build` y `~/go/pkg/mod`. Compartirlas entre
+proyectos es rápido y correcto porque ambas cachés son direccionadas por
+contenido. Si alguna vez necesita reiniciarlas, `go clean -modcache` y
+`go clean -cache`.
+
+### La compilación cruzada sigue funcionando
+
+`GOOS=linux GOARCH=arm64 go build` funciona exactamente igual que sin
+Compendium. El toolchain fijado incluye todos los targets cruzados
+estándar. Compendium no establece `GOOS` ni `GOARCH`.
+
+## Trabajar con herramientas instaladas vía `go install`
+
+Dentro de un proyecto activado, `go install example.com/foo/cmd/bar@v1.2.3`
+pone `bar` en el `PATH` del proyecto porque `GOBIN` está en el `PATH`. Use
+esto para herramientas que no están en el registro público. Sobreviven a
+`source <(compendium deactivate)` (el binario permanece en
+`envs/<project>/go/bin/`), solo salen del `PATH`.
+
+Para listar lo instalado para este proyecto:
+
+```bash
+ls "$GOBIN"
+```
+
+Para limpiarlo y reinstalar desde cero:
+
+```bash
+rm -rf "$GOBIN"
+compendium install   # restaura el directorio go/bin/ vacío
+```
+
+## Lista de archivos
+
+Un proyecto en Go listo para Compendium tiene esto en la raíz del
+repositorio:
+
+```
+my-go-project/
+├── compendium.toml         # versión de Go + linters
+├── go.mod                  # módulo + línea base de lenguaje
+├── go.sum                  # checksums de dependencias
+├── Makefile                # opcional, pero útil
+└── cmd/
+    └── my-app/
+        └── main.go
+```
+
+Clone el repositorio, `compendium install`, haga source de activate, compile.
+
+## Problemas comunes
+
+La referencia consolidada está en
+[Solución de problemas](/es/reference/troubleshooting/). Para proyectos en
+Go, los reportes más frecuentes son:
+
+- `go: command not found` — no se ejecutó `source <(compendium activate)`
+- `go.mod requires go >= X, but GOTOOLCHAIN=local prevents upgrade` — suba `[languages].go`
+- `go install` pone los binarios en `~/go/bin/` en vez de en el proyecto — `GOBIN` sin definir o sobrescrito
+- Reglas de `golangci-lint` desactualizadas en CI vs laptop — fije el linter en `compendium.toml`
+- `exec format error` tras copiar un binario entre plataformas — compile de forma cruzada con `GOOS`/`GOARCH`
+
+Consulte la [sección de Go](/es/reference/troubleshooting/#go) para las soluciones.

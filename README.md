@@ -1,5 +1,7 @@
 # Compendium documentation
 
+> 🌐 **English** · [Español](./README.es.md)
+
 Source for [compendium.ilean.me](https://compendium.ilean.me), the documentation site for [Compendium](https://github.com/ileanmjr88/compendium).
 
 Built with [Astro](https://astro.build) and [Starlight](https://starlight.astro.build). Deployed to Cloudflare Workers.

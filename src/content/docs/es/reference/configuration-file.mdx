@@ -1,0 +1,154 @@
+---
+title: Archivo de configuración
+description: Cada sección de compendium.toml, qué es obligatorio y qué es opcional.
+---
+
+`compendium.toml` es la única fuente de verdad para el entorno de su
+proyecto. Compendium lo lee, lo resuelve contra el registro e instala todo
+bajo `~/.local/compendium/`. Cualquiera con el archivo y un binario de
+Compendium puede reproducir el entorno.
+
+Esta página cubre cada sección reconocida en v0.1.
+
+## Configuración mínima viable
+
+El `compendium.toml` válido más pequeño:
+
+```toml
+[compendium]
+version = "1.0.0"
+min_compendium = "0.1.0"
+
+[registry]
+source = "public"
+```
+
+Eso por sí solo no instala nada, pero es un archivo legal. Los proyectos
+reales añaden al menos una entrada `[languages]` o `[tools]`.
+
+Un proyecto en Go típico:
+
+```toml
+[compendium]
+version = "1.0.0"
+min_compendium = "0.1.0"
+
+[registry]
+source = "public"
+
+[languages]
+go = "1.26.1"
+
+[tools]
+golangci-lint = "2.12.2"
+```
+
+## `[compendium]` (obligatorio)
+
+Metadatos del proyecto.
+
+```toml
+[compendium]
+version = "1.0.0"
+min_compendium = "0.1.0"
+```
+
+| Campo            | Obligatorio | Descripción                                                                                                                                  |
+| ---------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `version`        | Sí          | La versión del entorno de su proyecto. Súbala cuando cambie `compendium.toml`. *(Solo por convención; no se aplica.)*                        |
+| `min_compendium` | Sí          | El binario de Compendium mínimo pensado para leer este archivo. *(Reservado; todavía no se aplica — los binarios más antiguos no se negarán a ejecutarse hoy.)* |
+| `name`           | No          | Nombre del proyecto. Por defecto, el basename del directorio actual.                                                                          |
+
+## `[registry]` (obligatorio)
+
+De dónde obtiene Compendium los manifiestos y los binarios.
+
+```toml
+[registry]
+source = "public"
+```
+
+| Campo    | Obligatorio | Descripción                                                              |
+| -------- | ----------- | ------------------------------------------------------------------------ |
+| `source` | Sí          | Debe ser `"public"`. Solo el registro público es compatible en v0.1.     |
+
+## `[languages]` (opcional)
+
+Runtimes de lenguaje y compiladores principales. Una clave por lenguaje, el
+valor es la cadena de versión.
+
+```toml
+[languages]
+go = "1.26.1"
+node = "24.15.0"
+python = "3.14.5"
+c = "gcc@15.2.0-1"
+```
+
+Las versiones deben existir en el registro. Ejecute
+`compendium versions <name>` para ver qué hay disponible. Cada una se
+instala en `~/.local/compendium/languages/<name>/<version>/`.
+
+:::note
+Si define tanto `c` como `cpp`, Compendium instala solo `c` (un solo compilador incluye ambos drivers) y advierte sobre el duplicado. Elija uno.
+:::
+
+## `[tools]` (opcional)
+
+Herramientas de build, linters, depuradores, gestores de paquetes y otras
+utilidades. La misma forma que `[languages]`.
+
+```toml
+[tools]
+cmake = "4.3.2"
+ninja = "1.13.2"
+golangci-lint = "2.12.2"
+ccache = "4.13.6"
+```
+
+Cada una se instala en `~/.local/compendium/tools/<name>/<version>/`.
+
+La división entre `[languages]` y `[tools]` es por ruta de almacenamiento,
+no por capacidad. Consulte [Herramientas disponibles](/es/reference/available-tools/)
+para saber qué nombre va dónde.
+
+## `[packages]` (opcional)
+
+Integración del gestor de paquetes de C/C++ vía vcpkg. El parser acepta
+otras claves pero actualmente no tienen efecto.
+
+```toml
+[packages]
+vcpkg = "vcpkg.json"
+```
+
+| Clave   | Comportamiento                                                                                                                                                  |
+| ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `vcpkg` | Crea `vcpkg-installed/` bajo el entorno del proyecto y establece `VCPKG_ROOT` + `VCPKG_INSTALLED_DIR` al activar. No ejecuta `vcpkg install` — invóquelo usted mismo. |
+
+Las rutas son relativas a la raíz del proyecto.
+
+## Ejemplo completo
+
+Un proyecto en C++ que junta todo:
+
+```toml
+[compendium]
+version = "1.2.0"
+min_compendium = "0.1.0"
+
+[registry]
+source = "public"
+
+[languages]
+c = "gcc@15.2.0-1"
+python = "3.14.5"
+
+[tools]
+cmake = "4.3.2"
+ninja = "1.13.2"
+ccache = "4.13.6"
+
+[packages]
+vcpkg = "vcpkg.json"
+```

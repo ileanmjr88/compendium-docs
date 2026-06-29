@@ -12,6 +12,11 @@ export default defineConfig({
       description:
         "Reproducible developer environments, declared in one config.",
       plugins: [starlightLlmsTxt()],
+      defaultLocale: "root",
+      locales: {
+        root: { label: "English", lang: "en" },
+        es: { label: "Español", lang: "es" },
+      },
       head: [
         {
           tag: "script",
@@ -30,27 +35,43 @@ export default defineConfig({
         },
       ],
       sidebar: [
-        { label: "About", slug: "about" },
+        { label: "About", translations: { es: "Acerca de" }, slug: "about" },
         {
           label: "Getting started",
+          translations: { es: "Primeros pasos" },
           items: [
-            { label: "Installing", slug: "getting-started/installation" },
-            { label: "First steps", slug: "getting-started/first-steps" },
-            { label: "AI Tooling", slug: "getting-started/ai-tooling" },
+            {
+              label: "Installing",
+              translations: { es: "Instalación" },
+              slug: "getting-started/installation",
+            },
+            {
+              label: "First steps",
+              translations: { es: "Primeros pasos" },
+              slug: "getting-started/first-steps",
+            },
+            {
+              label: "AI Tooling",
+              translations: { es: "Herramientas de IA" },
+              slug: "getting-started/ai-tooling",
+            },
           ],
         },
         {
           label: "Guides",
+          translations: { es: "Guías" },
           items: [{ autogenerate: { directory: "guides" } }],
         },
         {
           label: "Reference",
+          translations: { es: "Referencia" },
           items: [{ autogenerate: { directory: "reference" } }],
         },
-        { label: "FAQ", slug: "faq" },
-        { label: "Roadmap", slug: "roadmap" },
+        { label: "FAQ", translations: { es: "Preguntas frecuentes" }, slug: "faq" },
+        { label: "Roadmap", translations: { es: "Hoja de ruta" }, slug: "roadmap" },
         {
           label: "Acknowledgement",
+          translations: { es: "Agradecimientos" },
           slug: "acknowledge",
         },
       ],

@@ -1,0 +1,395 @@
+---
+title: Solución de problemas
+description: Detalles comunes que encontrará usando Compendium en v0.1, con sus soluciones.
+---
+
+Una miscelánea de problemas que la mayoría de los usuarios encuentra al
+menos una vez. Las soluciones de aquí también están enlazadas desde las
+guías de cada lenguaje, pero esta página es la referencia autorizada. Los
+problemas universales se listan primero; los específicos de cada lenguaje
+siguen después.
+
+## `<command>: command not found` tras instalar
+
+Con diferencia el reporte más común. `compendium install` pone los binarios
+en disco; `compendium activate` los hace visibles para su shell. Si se saltó
+el segundo paso, nada cambia en su `PATH`.
+
+```bash
+source <(compendium activate)
+which <command>     # debería resolver bajo ~/.local/compendium/
+compendium env      # muestra todo lo que activate exportaría
+```
+
+Es la misma causa raíz ya sea que el binario que falta sea `go`, `node`,
+`python`, `arm-none-eabi-gcc`, `cmake`, o cualquier otro.
+
+Si `which` aún no apunta dentro de `~/.local/compendium/` después de
+activate, algo más adelante en el arranque de su shell está anteponiendo
+otro directorio al `PATH`. Revise `~/.zshrc`, `~/.bashrc` y cualquier
+herramienta que inyecte shims (`nvm`, `volta`, `pyenv`, `rbenv`, el helper
+de path de Homebrew, etc.) buscando líneas que se ejecuten **después** de
+activate.
+
+## La herramienta fijada se ejecuta, pero es la versión equivocada
+
+`which <tool>` resuelve a una ruta de Compendium, pero la versión no coincide
+con `compendium.toml`. Dos causas probables:
+
+- Subió la versión en `compendium.toml` pero no ha ejecutado `compendium install`. Ejecútelo.
+- Hizo source de activate antes de editar `compendium.toml`. Desactive, instale, reactive:
+
+  ```bash
+  source <(compendium deactivate)
+  compendium install
+  source <(compendium activate)
+  ```
+
+`compendium status` le dice si su entorno instalado coincide con la
+configuración actual.
+
+## Prefijo del prompt de Compendium
+
+Cuando ejecuta `source <(compendium activate)`, el prompt de su shell recibe
+un prefijo `(compendium) ` para que vea de un vistazo qué terminales están
+dentro de un entorno. El `PS1` original se guarda en `_COMPENDIUM_OLD_PS1` y
+se restaura al desactivar.
+
+Si mantiene un prompt personalizado (Starship, Powerlevel10k,
+`PROMPT_COMMAND`, hooks `precmd` de zsh, etc.) y el prefijo entra en
+conflicto con él, desactívelo limpiando la variable después de activate:
+
+```bash
+source <(compendium activate)
+export PS1="$_COMPENDIUM_OLD_PS1"
+```
+
+O envuelva activate en una función de shell que redefina `PS1` a lo que
+quiera. Deactivate sigue funcionando porque lee `_COMPENDIUM_OLD_PS1`
+directamente, no el `PS1` actual.
+
+## `[packages].pip` y `[packages].npm` no hacen nada en v0.1
+
+Ambas claves las parsea el loader pero no tienen ningún hook de instalación
+conectado. Solo `[packages].vcpkg` dispara algún comportamiento de
+instalación en v0.1 (crea el directorio `vcpkg-installed/` por proyecto y
+exporta `VCPKG_ROOT` / `VCPKG_INSTALLED_DIR` al activar; **no** ejecuta
+`vcpkg install`).
+
+Ejecute usted mismo la instalación nativa del lenguaje:
+
+```bash
+# Python
+pip install -r requirements.txt   # o: uv sync
+
+# Node
+npm install                       # o: pnpm install
+
+# vcpkg
+vcpkg install
+```
+
+Aún puede escribir `[packages].pip = "requirements.txt"` y
+`[packages].npm = "package.json"` en su configuración como documentación —
+son legales e inofensivas. `compendium install` las tomará en cuenta en
+cuanto el hook llegue después de v0.1.
+
+## Una herramienta se ejecuta pero no es la versión que fijé
+
+`which <tool>` debería resolver a una ruta bajo `~/.local/compendium/`
+después de activate. Si resuelve a `/usr/local/bin/`, `/opt/homebrew/`, o
+`/usr/bin/`, o bien no ejecutó activate o una instalación del sistema está
+ocultando el binario fijado.
+
+```bash
+compendium env       # muestra qué exportaría activate
+which <tool>         # confirma qué copia ejecutará su shell
+source <(compendium activate)
+```
+
+Si el conflicto persiste, compruebe que el `PATH` no tenga el directorio bin
+del sistema antepuesto en algún lugar de `.zshrc` / `.bashrc` después de la
+configuración de Compendium.
+
+## Go
+
+### `go.mod requires go >= X, but GOTOOLCHAIN=local prevents upgrade`
+
+La versión fijada en `[languages].go` es más antigua que la versión que
+requiere una dependencia. Compendium establece `GOTOOLCHAIN=local` para
+evitar que Go descargue en silencio un toolchain distinto, lo que anularía
+el sentido de fijar. Suba `[languages].go` y ejecute `compendium install`.
+
+### `go install` pone los binarios en `~/go/bin/` en vez de en el proyecto
+
+O bien `GOBIN` no está configurado (se saltó activate) o otro perfil de
+shell lo está sobrescribiendo después de activate. Compendium activado
+establece `GOBIN` a `~/.local/compendium/envs/<project>/go/bin`.
+Compruébelo:
+
+```bash
+compendium env | grep GOBIN
+go env GOBIN          # debería coincidir — si no, algo lo sobrescribió
+```
+
+### Reglas de linter desactualizadas en CI
+
+La CI está ejecutando una versión de `golangci-lint` distinta a la de su
+laptop. Fije el linter en `compendium.toml`, no por separado en su
+configuración de CI, y haga que la CI ejecute `compendium install` contra el
+mismo archivo que usa su laptop.
+
+### `exec format error` tras copiar un binario entre plataformas
+
+Los binarios de Go son específicos de la plataforma. El toolchain fijado
+instala binarios que coinciden con el OS/arquitectura de su host. Para
+producir binarios para otra plataforma, compile de forma cruzada con
+`GOOS`/`GOARCH`.
+
+## Python
+
+### `pip install` cae en el site-packages del Python del sistema
+
+Ejecutó `pip` antes de activate, o `/usr/bin/pip` está ocultando el pip
+del venv en el `PATH`. Después de activate, `which pip` debería apuntar
+dentro de `~/.local/compendium/envs/<project>/venv/bin/`. Si no, desactive,
+instale, reactive.
+
+### `uv sync` creó un `.venv/` en el repositorio
+
+`UV_PROJECT_ENVIRONMENT` no estaba configurado cuando se ejecutó uv. Vuelva a
+ejecutar `source <(compendium activate)` e inténtelo de nuevo. Si la variable
+está configurada pero uv aún la ignora, está en una versión de uv anterior a
+0.4 — suba la fijación en `[tools].uv`.
+
+### `venv recreated — reinstall packages` después de cada instalación
+
+Tiene dos archivos `compendium.toml` en alcance, o sigue editando la versión
+de Python. Compendium recrea el venv cada vez que la versión de Python del
+`pyvenv.cfg` del venv no coincide con `[languages].python`.
+
+### `ModuleNotFoundError` para un módulo de la stdlib como `_ctypes`
+
+Las bibliotecas incluidas del Python fijado no están en la ruta del loader.
+En Linux, confirme que `LD_LIBRARY_PATH` incluya
+`~/.local/compendium/languages/python/<ver>/lib`. En macOS, esto nunca
+debería pasar; reinstale con `compendium install` si pasa.
+
+### El IDE elige el intérprete equivocado
+
+Está detectando automáticamente un `.venv/` local del proyecto o un shim de
+`pyenv`. Apúntelo explícitamente a
+`~/.local/compendium/envs/<project>/venv/bin/python`.
+
+## Node
+
+### `npm install` usa un Node distinto al que fijé
+
+Un `.nvmrc` o un shim de Volta antes en el `PATH` está interceptando.
+Ejecute `which -a node` para ver el orden de resolución; el primer resultado
+debería ser la ruta de Compendium. Si no, el directorio del shim se está
+anteponiendo al `PATH` después de activate (revise los archivos de arranque
+de su shell).
+
+### Corepack intenta descargar un pnpm distinto
+
+`packageManager` en `package.json` no coincide con `[tools].pnpm`. O bien
+alinéelos o elimine el campo `packageManager` — el pnpm fijado de Compendium
+ya está en el `PATH`.
+
+### La instalación global cae en el lugar equivocado
+
+`npm config get prefix` muestra a dónde van los globales. Si se ha
+sobrescrito (`~/.npmrc` o `NPM_CONFIG_PREFIX` en su shell), desactívelo para
+usar el valor por defecto de Node, que bajo Compendium es el directorio
+`bin/` acotado a la versión.
+
+### El rebuild de un módulo nativo falla tras subir la versión de Node
+
+`node_modules/` tiene binarios precompilados contra la ABI del Node anterior.
+`rm -rf node_modules` y reinstale.
+
+## C y C++
+
+### GCC en macOS no es compatible
+
+Si pone `gcc` en `[languages]` en macOS, Compendium instala el binario pero
+imprime una advertencia al activar y no exporta variables de entorno de GCC.
+Use Clang en su lugar:
+
+```toml
+# macOS
+[languages]
+cpp = "clang@<version>"
+```
+
+La razón no es de política: el GCC precompilado de xPack para macOS apunta al
+SDK de macOS 11, y su `include-fixed/stdio.h` incluido no parsea contra los
+headers del sistema de macOS 13+. Subir la versión de GCC no lo arregla
+porque el desajuste de SDK está integrado en el build. De todas formas, todo
+el ecosistema de macOS (frameworks, runtime de Objective-C,
+interoperabilidad con Swift) está construido en torno a Clang.
+
+En Linux, tanto GCC como Clang funcionan.
+
+### "C compiler cannot create executables" en macOS
+
+Compendium ejecuta `xcrun --show-sdk-path` durante activate para establecer
+`SDKROOT`. Si las Xcode Command Line Tools no están instaladas, la ruta del
+SDK está vacía y la configuración de CMake (o cualquier invocación de `cc`)
+falla con:
+
+```
+C compiler cannot create executables
+```
+
+Arréglelo una vez:
+
+```bash
+xcode-select --install
+source <(compendium deactivate)
+source <(compendium activate)
+```
+
+No necesita el Xcode completo — el paquete de Command Line Tools es
+suficiente.
+
+### Establecer tanto `c` como `cpp` dispara una advertencia de deduplicación
+
+Un solo compilador incluye ambos drivers (`gcc` incluye `gcc` y `g++`;
+`clang` incluye `clang` y `clang++`), así que Compendium instala solo uno de
+ellos cuando pide ambos. La entrada redundante se omite con esta advertencia:
+
+```
+using c; a single compiler ships both drivers
+```
+
+Elija uno en su `compendium.toml`:
+
+```toml
+[languages]
+# bien: elija uno
+c = "gcc@<version>"
+
+# también bien: elija el otro
+cpp = "clang@<version>"
+```
+
+Si su proyecto realmente necesita dos compiladores distintos (raro), abra un
+issue describiendo el caso.
+
+### Linux y macOS manejan libc++ de forma distinta
+
+Compendium se lo oculta, pero vale la pena saberlo si alguna vez mira los
+flags exportados.
+
+**Linux.** Compendium provee el compilador **y** el runtime. Las
+herramientas del sistema en Linux usan libstdc++ (el runtime de GCC), así
+que añadir el libc++ de LLVM no entra en conflicto — son bibliotecas
+completamente separadas. En Linux con Clang, verá:
+
+```
+CXXFLAGS     = -stdlib=libc++
+LDFLAGS      = -stdlib=libc++ -fuse-ld=lld -Wl,-rpath,<libDir>
+LIBRARY_PATH = <libDir>:$LIBRARY_PATH
+```
+
+**macOS.** Compendium provee el compilador; Apple provee el runtime. Cada
+binario de macOS usa libc++. Añadir una segunda versión envenenaría el
+proceso a través de `DYLD_LIBRARY_PATH`, que en macOS afecta a cada binario
+del shell, no solo al suyo. En macOS con Clang, verá:
+
+```
+SDKROOT  = $(xcrun --show-sdk-path)
+CXXFLAGS = -nostdinc++ -isystem $SDKROOT/usr/include/c++/v1
+```
+
+Compendium deliberadamente **no** establece `LDFLAGS`, `LIBRARY_PATH` ni
+`DYLD_LIBRARY_PATH` en macOS.
+
+### `Could not find toolchain file`
+
+CMake no encuentra el archivo de toolchain de vcpkg. No se ejecutó
+`source <(compendium activate)` en el shell actual. Confirme con
+`echo $VCPKG_ROOT`.
+
+### `ccache: command not found`
+
+`ccache` está en su configuración de CMake pero no en `[tools]`. Añada
+`ccache = "<version>"` a `[tools]` en `compendium.toml`, luego
+`compendium install`.
+
+### El bootstrap de vcpkg falla
+
+A la copia de vcpkg le falta su marcador `.vcpkg-root`. Vuelva a ejecutar
+`compendium install` para obtener una copia correctamente empaquetada.
+
+### El build usa el clang del host en vez del de Compendium
+
+Olvidó hacer `source <(compendium activate)`, o el preset de CMake no hereda
+de `base` y `$env{CC}`/`$env{CXX}` no se están leyendo. Ejecute
+`compendium env` para confirmar qué está exportado, luego reconstruya desde
+un directorio `build/` limpio.
+
+### vcpkg cachea de forma agresiva entre proyectos
+
+vcpkg mantiene una caché de binarios en `~/.cache/vcpkg/` y reutiliza
+archivos `.a` compilados entre proyectos. Cuando cambia la versión del
+compilador o los flags, esa caché le devuelve binarios construidos contra los
+flags antiguos. Los errores de enlace con símbolos del estilo
+`__do_string_hash[abi:nqe220102]` son el síntoma habitual.
+
+Cuando cambie versiones de toolchain o flags, elimine ambas cachés:
+
+```bash
+rm -rf ~/.cache/vcpkg
+rm -rf build vcpkg-installed
+```
+
+Luego reconfigure y reconstruya.
+
+## Embebidos (arm-none-eabi)
+
+Las entradas de abajo aparecen con más frecuencia en STM32 y targets ARM
+Cortex-M similares.
+
+### Gatekeeper de macOS pone en cuarentena `arm-none-eabi-gdb`
+
+La primera vez que ejecuta `arm-none-eabi-gdb` en macOS, Gatekeeper puede
+bloquearlo porque el build de xPack no está notarizado por Apple. Permítalo
+una vez en System Settings → Privacy & Security, o quite el atributo de
+cuarentena:
+
+```bash
+xattr -d com.apple.quarantine \
+  ~/.local/compendium/languages/arm-none-eabi-gcc/<ver>/bin/arm-none-eabi-gdb
+```
+
+El mismo workaround aplica a cualquier binario no notarizado que Compendium
+instale en macOS.
+
+### `region 'FLASH' overflowed by N bytes`
+
+Su firmware es más grande que la región FLASH del linker script. O bien
+recorte código (active LTO, elimine funciones sin usar), o edite el linker
+script para que coincida con el chip real. No es un problema de Compendium,
+pero sí frecuente.
+
+### `undefined reference to '_sbrk'` (y similares)
+
+Falta el flag `--specs=nano.specs` (o equivalente) en su archivo de
+toolchain, o el orden del linker es incorrecto. Compare contra una
+exportación nueva de CubeMX.
+
+### OpenOCD: `Error: open failed`
+
+ST-Link no conectado, permisos de USB incorrectos, o ya hay otra sesión de
+depurador conectada. Desconecte y reconecte la placa. En Linux, también
+puede necesitar las reglas udev de la distribución de OpenOCD.
+
+### El build toma el `gcc` del host en vez de `arm-none-eabi-gcc`
+
+El archivo de toolchain de CMake no se está aplicando. Compruebe que
+`CMakePresets.json` tenga `toolchainFile` apuntando a su
+`cmake/gcc-arm-none-eabi.cmake` (o equivalente) y que esté invocando el
+preset (`cmake --preset Debug`), no `cmake .` directo.

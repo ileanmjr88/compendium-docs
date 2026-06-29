@@ -1,0 +1,90 @@
+---
+title: Herramientas disponibles
+description: Lenguajes y herramientas disponibles en el registro público de Compendium, obtenidos en vivo al momento del build.
+---
+
+import { REGISTRY_URL } from '../../../../registry';
+
+export const index = await fetch(`${REGISTRY_URL}/index.json`).then((r) => r.json());
+export const builtAt = new Date().toISOString().slice(0, 10);
+
+Todo lo de abajo viene directamente del registro público. La CLI obtiene el
+mismo `index.json` cuando ejecuta `compendium install`. Haga clic en el
+nombre de una herramienta para ver todas las versiones en su archivo de
+manifiesto.
+
+## Lenguajes
+
+<table>
+	<thead>
+		<tr>
+			<th>Herramienta</th>
+			<th>Última</th>
+			<th>Versiones</th>
+		</tr>
+	</thead>
+	<tbody>
+		{Object.entries(index.languages).map(([name, info]) => (
+			<tr>
+				<td>
+					<a href={`https://github.com/ileanmjr88/compendium-registry/blob/main/${info.file}`}>
+						<code>{name}</code>
+					</a>
+				</td>
+				<td><code>{info.latest}</code></td>
+				<td>{info.versions}</td>
+			</tr>
+		))}
+	</tbody>
+</table>
+
+## Herramientas
+
+<table>
+	<thead>
+		<tr>
+			<th>Herramienta</th>
+			<th>Última</th>
+			<th>Versiones</th>
+		</tr>
+	</thead>
+	<tbody>
+		{Object.entries(index.tools).map(([name, info]) => (
+			<tr>
+				<td>
+					<a href={`https://github.com/ileanmjr88/compendium-registry/blob/main/${info.file}`}>
+						<code>{name}</code>
+					</a>
+				</td>
+				<td><code>{info.latest}</code></td>
+				<td>{info.versions}</td>
+			</tr>
+		))}
+	</tbody>
+</table>
+
+## Cómo usar una versión específica
+
+Establezca la versión exactamente en su `compendium.toml`:
+
+```toml
+[languages]
+go = "1.26.1"
+
+[tools]
+cmake = "4.3.1"
+```
+
+Luego ejecute `compendium install` — el registro resuelve el tarball de
+plataforma/arquitectura para su máquina, lo descarga y verifica el checksum
+SHA-256.
+
+Si una versión no está listada aquí, no es instalable. Abra un pull request
+contra [compendium-registry](https://github.com/ileanmjr88/compendium-registry)
+para añadirla.
+
+---
+
+<small>
+Versión del índice del registro: `{index.version}` · actualizado upstream `{index.updated_at}` · página generada el `{builtAt}`.
+</small>

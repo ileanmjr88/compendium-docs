@@ -1,0 +1,143 @@
+---
+title: Agradecimientos
+description: Los proyectos de código abierto, fundaciones y personas de cuyo trabajo depende Compendium, y cómo apoyarlos.
+---
+
+Compendium se apoya en el trabajo de muchos proyectos de código abierto,
+fundaciones y personas. Los binarios que distribuimos, las herramientas de
+build que orquestamos y los runtimes que instalamos fueron todos creados y
+mantenidos por personas cuyo trabajo merece reconocimiento y, cuando
+corresponde, su apoyo.
+
+Enlazamos directamente a los releases de upstream. No rehospedamos,
+modificamos ni reempaquetamos su trabajo salvo que se indique explícitamente
+(vcpkg es la única excepción en v0.1, ya que requiere ensamblar el binario
+más scripts). Los checksums verifican la integridad de extremo a extremo.
+
+Si Compendium le resulta útil, por favor considere apoyar los proyectos de
+upstream de abajo. Muchos los mantienen equipos pequeños o personas
+individuales cuyo trabajo beneficia a toda la comunidad de desarrolladores.
+
+## Socios de distribución
+
+### xPack, por Liviu Ionescu
+
+El [proyecto xPack](https://xpack.github.io) provee distribuciones binarias
+reproducibles y multiplataforma de los compiladores y utilidades del sistema
+en las que Compendium más se apoya: GCC, arm-none-eabi-gcc,
+aarch64-none-elf-gcc, riscv-none-elf-gcc, OpenOCD, bison, m4, pkg-config y
+realpath. xPack lo mantiene principalmente **Liviu Ionescu** y es estructural
+para una parte significativa del registro público de Compendium.
+
+Si Compendium le es útil, por favor considere patrocinar xPack:
+
+- Sitio web: [xpack.github.io](https://xpack.github.io)
+- GitHub: [xpack-dev-tools](https://github.com/xpack-dev-tools)
+- **Patrocinar:** [ko-fi.com/ilegeul](https://ko-fi.com/ilegeul)
+
+## Runtimes de lenguaje
+
+- **Go.** Mantenido por The Go Authors en Google y la comunidad de código abierto.
+  [go.dev](https://go.dev) · Licencia: BSD-3-Clause
+- **Node.js.** Alojado por la OpenJS Foundation.
+  [nodejs.org](https://nodejs.org) · Fundación: [openjsf.org](https://openjsf.org) · Licencia: MIT
+- **Python.** Administrado por la Python Software Foundation. Compendium
+  distribuye Python vía [python-build-standalone](https://github.com/astral-sh/python-build-standalone), mantenido por Astral.
+  [python.org](https://www.python.org) · **Apoye a la PSF:** [python.org/psf/donations](https://www.python.org/psf/donations/)
+
+## Compiladores
+
+- **GCC.** La GNU Compiler Collection, fundamental para el soporte de
+  compiladores de Compendium. Mantenida por el GNU Project bajo la Free
+  Software Foundation. Distribuida vía xPack.
+  [gcc.gnu.org](https://gcc.gnu.org) · **Apoye a la FSF:** [fsf.org/donate](https://www.fsf.org/donate)
+- **LLVM y Clang.** Administrados por la LLVM Foundation. Proveen clang,
+  clang++, lldb-dap, clang-tidy, clang-format.
+  [llvm.org](https://llvm.org) · Fundación: [foundation.llvm.org](https://foundation.llvm.org) · Licencia: Apache 2.0 con excepción de LLVM
+- **arm-none-eabi-gcc.** El ARM GNU Toolchain para desarrollo embebido.
+  Distribuido vía xPack.
+  [ARM GNU Toolchain](https://developer.arm.com/Tools%20and%20Software/GNU%20Toolchain)
+- **aarch64-none-elf-gcc.** El toolchain bare-metal de ARM de 64 bits para
+  desarrollo embebido. Distribuido vía xPack.
+- **riscv-none-elf-gcc.** El toolchain bare-metal de RISC-V. Distribuido vía
+  xPack.
+
+## Herramientas de build
+
+- **CMake.** Desarrollado y mantenido por Kitware.
+  [cmake.org](https://cmake.org) · **Donar:** [cmake.org/donate](https://cmake.org/donate/) · Licencia: BSD-3-Clause
+- **Ninja.** Creado por Evan Martin y mantenido por los contribuidores de Ninja.
+  [ninja-build.org](https://ninja-build.org) · Licencia: Apache 2.0
+- **ccache.** Originalmente de Andrew Tridgell, mantenido por Joel Rosdahl y
+  contribuidores.
+  [ccache.dev](https://ccache.dev) · **Donar:** [ccache.dev/donate](https://ccache.dev/donate.html) · Licencia: GPL-3.0
+- **vcpkg.** Gestor de paquetes de C/C++ de Microsoft. Compendium reempaqueta
+  y distribuye vcpkg en v0.1.
+  [github.com/microsoft/vcpkg](https://github.com/microsoft/vcpkg) · Licencia: MIT
+
+## Herramientas para desarrolladores
+
+- **golangci-lint.** Agregador rápido de linters de Go.
+  [golangci-lint.run](https://golangci-lint.run) · **Patrocinar:** [github.com/sponsors/golangci](https://github.com/sponsors/golangci) · Licencia: GPL-3.0
+- **uv.** Gestor de paquetes de Python rápido, de Astral (basado en Rust).
+  [github.com/astral-sh/uv](https://github.com/astral-sh/uv) · Licencia: MIT/Apache 2.0
+- **Ruff.** Linter y formateador de Python rápido, de Astral (basado en Rust).
+  [github.com/astral-sh/ruff](https://github.com/astral-sh/ruff) · Licencia: MIT
+- **pnpm.** Gestor de paquetes de Node.js rápido y eficiente en disco.
+  [pnpm.io](https://pnpm.io) · **Donar:** [opencollective.com/pnpm](https://opencollective.com/pnpm) · Licencia: MIT
+
+## Herramientas para embebidos y hardware
+
+- **OpenOCD.** Depurador on-chip, mantenido por el proyecto OpenOCD.
+  Distribuido vía xPack.
+  [openocd.org](https://openocd.org)
+
+## Utilidades del sistema
+
+Las siguientes utilidades son esenciales para el soporte de build de
+Compendium. Las herramientas GNU las mantiene el GNU Project bajo la tutela
+de la Free Software Foundation. Todas se distribuyen vía xPack.
+
+- **m4.** Procesador de macros (GNU)
+- **bison.** Generador de parsers (GNU)
+- **realpath.** Utilidad de resolución de rutas (GNU coreutils)
+- **pkg-config.** Originado en [freedesktop.org](https://www.freedesktop.org).
+  La implementación GNU de pkg-config es la que Compendium distribuye.
+
+**Apoye al GNU Project:** [fsf.org/donate](https://www.fsf.org/donate)
+
+## Fundaciones que vale la pena apoyar directamente
+
+Si quiere apoyar el código abierto de forma amplia en vez de un proyecto
+específico, estas fundaciones administran una parte significativa del
+software en el que Compendium se apoya:
+
+- **Free Software Foundation.** GCC, m4, bison y el ecosistema GNU más amplio. [fsf.org/donate](https://www.fsf.org/donate)
+- **Python Software Foundation.** [python.org/psf/donations](https://www.python.org/psf/donations/)
+- **OpenJS Foundation.** Node.js y el ecosistema de JavaScript. [openjsf.org](https://openjsf.org)
+- **LLVM Foundation.** LLVM, Clang y el ecosistema de LLVM más amplio. [foundation.llvm.org](https://foundation.llvm.org)
+
+## Avisos de licencia
+
+Compendium redistribuye binarios de fuentes upstream, varios de los cuales
+están licenciados bajo la GNU General Public License (GPL) u otras licencias
+copyleft. Los textos completos de las licencias y el código fuente de los
+binarios redistribuidos están disponibles en los proyectos upstream
+enlazados arriba.
+
+El manifiesto del registro de Compendium en sí (`index.json` y los archivos
+JSON por herramienta) está dedicado al dominio público bajo CC0. Los binarios
+referenciados por el manifiesto están licenciados por sus respectivos
+proyectos.
+
+## Una nota sobre el código abierto
+
+Compendium existe porque miles de personas y organizaciones han pasado
+décadas construyendo, manteniendo y compartiendo libremente el software con
+el que funciona el mundo. A veces ese trabajo está financiado. A menudo no lo
+está. Si Compendium le ayuda a entregar más rápido, considere devolver algo
+de ese beneficio a los proyectos que lo hicieron posible.
+
+---
+
+*Si falta un proyecto en esta lista, por favor [abra un issue](https://github.com/ileanmjr88/compendium-registry/issues) o pull request. Queremos reconocer a todos cuyo trabajo sirve de base a Compendium.*
