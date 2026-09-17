@@ -1,0 +1,159 @@
+---
+import { ACTION, EMAIL_FIELD, TAG, POWERED_BY_URL } from '../config/newsletter';
+
+interface Props {
+	/** Heading above the form. Omit for a bare form. */
+	title?: string;
+	/** One line of context under the heading. */
+	description?: string;
+	/** Visible label for the email field. */
+	label?: string;
+	submit?: string;
+	/** Small print under the form (privacy, cadence). */
+	note?: string;
+	poweredBy?: string;
+	/** Unique when more than one form appears on a page. */
+	id?: string;
+}
+
+const {
+	title,
+	description,
+	label = 'Email address',
+	submit = 'Subscribe',
+	note,
+	poweredBy = 'Powered by Buttondown',
+	id = 'newsletter-email',
+} = Astro.props;
+---
+
+{/*
+	A plain form POST, on purpose, and no JavaScript anywhere near it.
+
+	Buttondown fronts the embed endpoint with a Cloudflare Turnstile challenge: it
+	answers the POST with HTTP 400 and a "Verify Your Subscription" page that the
+	reader has to see and complete. The 400 is not a payload rejection, so
+	submitting by fetch cannot work no matter what is sent — it swallows the page
+	the reader is supposed to act on. The form navigates in the same tab for that
+	reason. Buttondown re-posts the hidden fields, `tag` included, from the verify
+	page, so the tag survives the round trip. The list is double opt-in, hence the
+	"check your inbox" wording the pages pass in as `note`.
+*/}
+<div class="newsletter not-content">
+	{title && <h2 class="newsletter__title">{title}</h2>}
+	{description && <p class="newsletter__description">{description}</p>}
+
+	<form class="newsletter__form" action={ACTION} method="post">
+		{/*
+			A visible label rather than a placeholder: a placeholder disappears on the
+			first keystroke, taking the field's only description with it exactly when
+			someone would re-read it, and it renders under the 4.5:1 contrast minimum.
+		*/}
+		<label class="newsletter__label" for={id}>{label}</label>
+		<div class="newsletter__row">
+			<input
+				class="newsletter__input"
+				id={id}
+				type="email"
+				name={EMAIL_FIELD}
+				autocomplete="email"
+				required
+			/>
+			<button class="newsletter__button" type="submit">{submit}</button>
+		</div>
+		<input type="hidden" name="embed" value="1" />
+		<input type="hidden" name="tag" value={TAG} />
+	</form>
+
+	{note && <p class="newsletter__note">{note}</p>}
+	<p class="newsletter__note">
+		<a href={POWERED_BY_URL} target="_blank" rel="noopener noreferrer">
+			{poweredBy}
+		</a>
+	</p>
+</div>
+
+<style>
+	.newsletter {
+		border: 1px solid var(--sl-color-gray-5);
+		border-radius: 0.5rem;
+		padding: 1.5rem;
+		background-color: var(--sl-color-black);
+	}
+
+	.newsletter__title {
+		margin: 0;
+		font-size: var(--sl-text-h4);
+		font-weight: 600;
+		line-height: var(--sl-line-height-headings);
+		color: var(--sl-color-white);
+	}
+
+	.newsletter__description {
+		margin: 0.5rem 0 0;
+		color: var(--sl-color-gray-2);
+	}
+
+	.newsletter__form {
+		margin-top: 1rem;
+	}
+
+	.newsletter__label {
+		display: block;
+		margin-bottom: 0.375rem;
+		font-size: var(--sl-text-sm);
+		font-weight: 600;
+		color: var(--sl-color-white);
+	}
+
+	.newsletter__row {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+		align-items: stretch;
+	}
+
+	.newsletter__input {
+		flex: 1 1 14rem;
+		min-width: 0;
+		padding: 0.5rem 0.75rem;
+		font: inherit;
+		color: var(--sl-color-white);
+		background-color: var(--sl-color-gray-6);
+		border: 1px solid var(--sl-color-gray-5);
+		border-radius: 0.25rem;
+	}
+
+	.newsletter__input:focus-visible {
+		outline: 2px solid var(--sl-color-text-accent);
+		outline-offset: 1px;
+	}
+
+	.newsletter__button {
+		padding: 0.5rem 1.25rem;
+		font: inherit;
+		font-weight: 600;
+		color: var(--sl-color-black);
+		background-color: var(--sl-color-text-accent);
+		border: 1px solid var(--sl-color-text-accent);
+		border-radius: 0.25rem;
+		cursor: pointer;
+	}
+
+	.newsletter__button:hover {
+		background-color: var(--sl-color-accent-high);
+		border-color: var(--sl-color-accent-high);
+		color: var(--sl-color-accent-low);
+	}
+
+	.newsletter__button:focus-visible {
+		outline: 2px solid var(--sl-color-white);
+		outline-offset: 1px;
+	}
+
+	.newsletter__note {
+		margin: 0.75rem 0 0;
+		font-size: var(--sl-text-sm);
+		color: var(--sl-color-gray-3);
+	}
+</style>

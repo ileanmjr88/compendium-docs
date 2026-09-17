@@ -17,6 +17,7 @@ hero:
 ---
 
 import { Card, CardGrid } from '@astrojs/starlight/components';
+import NewsletterSignup from '../../../components/NewsletterSignup.astro';
 
 <CardGrid>
 	<Card title="Un solo binario" icon="seti:go">
@@ -38,3 +39,13 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
 		`~/.local/compendium/`: sin sudo, sin root.
 	</Card>
 </CardGrid>
+
+<NewsletterSignup
+	title="Notas de la versión, sin ruido"
+	description="Qué se publicó, qué cambió y qué hay de nuevo en el registry."
+	label="Correo electrónico"
+	submit="Suscribirse"
+	note="Se envía cuando hay una versión nueva o algo que valga la pena compartir; sin periodicidad fija. Confirme desde su bandeja de entrada después de suscribirse; puede darse de baja cuando quiera."
+	poweredBy="Con tecnología de Buttondown"
+	id="home-newsletter-email"
+/>

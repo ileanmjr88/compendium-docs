@@ -20,6 +20,8 @@ npm run dev      # http://localhost:4321
 | Path                  | Purpose                                            |
 | --------------------- | -------------------------------------------------- |
 | `src/content/docs/`   | All documentation pages (`.md` / `.mdx`)           |
+| `src/components/`     | Astro components used from MDX pages               |
+| `src/config/`         | Small config modules (e.g. newsletter provider)    |
 | `src/assets/`         | Images referenced from docs                        |
 | `public/`             | Static assets served at the site root              |
 | `astro.config.mjs`    | Astro + Starlight config, including sidebar order  |
