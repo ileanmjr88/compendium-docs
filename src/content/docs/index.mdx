@@ -17,6 +17,7 @@ hero:
 ---
 
 import { Card, CardGrid } from '@astrojs/starlight/components';
+import NewsletterSignup from '../../components/NewsletterSignup.astro';
 
 <CardGrid>
 	<Card title="One binary" icon="seti:go">
@@ -38,3 +39,10 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
 		sudo, no root.
 	</Card>
 </CardGrid>
+
+<NewsletterSignup
+	title="Release notes, no noise"
+	description="What shipped, what broke, and what is new in the registry."
+	note="Sent when there is a release or something worth sharing — no set cadence. Confirm from your inbox after subscribing; unsubscribe any time."
+	id="home-newsletter-email"
+/>

@@ -74,6 +74,11 @@ export default defineConfig({
           translations: { es: "Agradecimientos" },
           slug: "acknowledge",
         },
+        {
+          label: "Newsletter",
+          translations: { es: "Boletín" },
+          slug: "newsletter",
+        },
       ],
     }),
   ],
