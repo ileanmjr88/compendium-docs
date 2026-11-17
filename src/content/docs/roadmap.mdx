@@ -4,7 +4,7 @@ description: What ships in v0.1, what's coming next, and what's deferred. Update
 ---
 
 This page reflects what Compendium does today versus what's planned for
-the next two releases.
+the next releases.
 
 ## v0.1 (current)
 
@@ -39,48 +39,80 @@ keys in `[packages]` are parsed but not yet consumed.
 
 **Platforms.** macOS and Linux.
 
-## v0.2 (coming next)
+**License.** Apache-2.0 starting with v0.1.2. v0.1.1 and earlier stay
+under GPL-3.0. See [ADR 0001](/adr/0001-relicense-to-apache/).
 
-Broaden C/C++ build system support, add major language runtimes,
-complete the embedded cross-compiler set, and improve developer
-ergonomics.
+## v0.2 (in progress): the lockfile
 
-- **Multi-build-system support for C/C++**: Meson, Autotools, raw
-  Makefiles, b2 (Boost).
+`compendium.lock` records exactly what `compendium.toml` resolved to, so
+any machine can reproduce the same environment.
+
+- **`compendium.lock`** — exact versions, download URLs, checksums, and
+  sizes for every pinned language and tool. `compendium install` writes it
+  on the first run and follows it after that, re-resolving only what
+  changed in `compendium.toml`.
+- **Cross-platform pinning** — each platform your team installs on is
+  added to the lock. Install on a Mac, then on Linux, and the lock pins
+  both. A version bump re-resolves every platform already in the lock.
+- **`install --frozen`** (alias `--locked`) — for CI: fail instead of
+  updating the lock when `compendium.toml` has drifted from it.
+- **Version bumps keep platform coverage** — if the registry has no build
+  of the new version for one of your platforms, the install fails.
+  `--allow-partial` accepts the gap.
+- **Drift in `status`** — reports when `compendium.toml` and
+  `compendium.lock` disagree, and when an ecosystem lockfile such as
+  `go.sum` changes. Exits non-zero on drift.
+- **`[packages]` points at resolved files** — `go.sum`,
+  `package-lock.json`, `uv.lock`, and `poetry.lock` instead of `go.mod`,
+  `package.json`, and `pyproject.toml`. `vcpkg.json` and
+  `requirements.txt` stay the same. This is a breaking change.
+- **`compendium verify`** — offline check that the lock is complete: every
+  pinned item has artifacts for every platform the lock covers, every
+  artifact has a checksum, ecosystem lockfiles still match their recorded
+  digests, and the lock covers the platform you're on.
+- **Registry license metadata** — each registry entry records the tool's
+  SPDX license ID, a license URL, and a source URL.
+
+## v0.3: git hooks
+
+Compendium runs your project's git hooks inside the pinned environment.
+
+- **Git hook runner** — `compendium install` installs the hooks declared
+  in `[hooks]` of `compendium.toml`, and each one runs with your pinned
+  tools. The section is parsed in v0.1 but nothing runs yet.
+- **`pre-commit` first**, plus a small set of others: `commit-msg`,
+  `pre-push`, and `post-merge`.
+- **Auto-activate on branch switch** — a `post-checkout` hook runs
+  `compendium activate` when you switch branches, so the environment
+  follows your code.
+
+## v0.4: new tools in the registry
+
+More languages, toolchains, and build systems, plus running your
+project's package managers.
+
 - **Java** and its build tools.
-- **Rust** and its tooling.
-- **ESP32 / Xtensa toolchain** (`xtensa-esp-elf-gcc`) — natural
-  completion of the embedded cross-compiler set.
-- **Git hook runner** — the custom hook executor for `[hooks]` in
-  `compendium.toml`. The section is parsed in v0.1 but nothing runs yet.
-- **Auto-activate on branch switch** — Compendium installs a post-checkout git 
-  hook that runs compendium activate when you switch branches, so the environment follows your code
-- **`compendium doctor`** and better error messages across the CLI.
-- **`compendium.lock`** — a new committed lockfile that pins exact
-  versions and checksums. `compendium install` honors it on subsequent
-  runs.
-- **`compendium verify`** — reproducibility check that the local cache
-  matches the lockfile.
-
-## v0.3
-
-First-party ownership of the runtime layer, plus a Compendium-native
-C/C++ package manager.
-
-- **Built-in C/C++ library manager alternative** — config-driven through `[deps.*]` 
-  in `compendium.toml`.
-- **Patch infrastructure** for C/C++ dependencies — declared per-dep,
-  applied in order before build, fails hard on conflict, patch contents
-  hashed into the lockfile for reproducibility.
-- **Bun**: JavaScript runtime that bundles its own package manager, bundler,
-  and test runner. One pin in `[languages]` replaces `node` plus a separate
-  `[tools].pnpm` for projects that adopt it wholesale.
+- **Kotlin** — JVM language, builds on the Java work.
+- **Rust** — `rustc` and `cargo` as one language entry.
 - **Zig** — systems language adjacent to C/C++; `zig cc` also works as a
   C/C++ cross-compiler.
-- **Kotlin** — JVM language, builds on the v0.2 Java work.
-- **ASP.NET** — Linux and macOS only. Windows is not on the immediate
-  roadmap.
-- **`compendium clean`** — clear download scratch and manifest cache.
-  Does not garbage-collect installed tool versions — that needs
-  project-registry design and comes later.
+- **Bun** — JavaScript runtime that bundles its own package manager,
+  bundler, and test runner.
+- **ESP32 / Xtensa toolchain** (`xtensa-esp-elf-gcc`) — completes the
+  embedded cross-compiler set.
+- **More C/C++ build systems** — Meson, Autotools, raw Makefiles, and b2
+  (Boost).
+- **`install --with-packages`** — opt-in, off by default. Runs the
+  ecosystem package managers for `[packages]` (npm, pip, uv, poetry,
+  vcpkg, cargo, Go modules). When an ecosystem lockfile changes, only that
+  ecosystem runs again.
 
+## v0.5: built-in C/C++ library manager
+
+The first parts of a Compendium-native C/C++ library manager.
+
+- **`[deps.*]` in `compendium.toml`** — declare C/C++ libraries in the
+  same config as your toolchain.
+- **Patch infrastructure** for C/C++ dependencies — declared per
+  dependency, applied in order before the build, fails hard on conflict.
+  Patch contents are hashed into the lockfile for reproducibility.
