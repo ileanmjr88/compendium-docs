@@ -7,14 +7,11 @@
 # Optional environment overrides:
 #   COMPENDIUM_VERSION=v0.1.0  # pin a specific release (default: latest)
 #   INSTALL_DIR=$HOME/bin      # install location (default: $HOME/.local/bin)
-#   COMPENDIUM_DOC_DIR=...     # license files (default: $XDG_DATA_HOME/doc/compendium,
-#                              #   or $HOME/.local/share/doc/compendium)
 
 set -eu
 
 REPO="ileanmjr88/compendium"
 INSTALL_DIR="${INSTALL_DIR:-$HOME/.local/bin}"
-DOC_DIR="${COMPENDIUM_DOC_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/doc/compendium}"
 VERSION="${COMPENDIUM_VERSION:-}"
 
 # ---- helpers ---------------------------------------------------------------
@@ -28,35 +25,11 @@ need() {
     command -v "$1" >/dev/null 2>&1 || fail "$1 is required but not installed"
 }
 
-# v0.1.2 and later are Apache-2.0 and must ship LICENSE, NOTICE and
-# third_party_licenses/. v0.1.1 and earlier (GPL-3.0) predate that.
-# An unparseable version is treated as new, so the check stays on.
-needs_license_files() {
-    core="${1%%-*}"
-    case "$core" in
-        *.*.*) ;;
-        *) return 0 ;;
-    esac
-    major="${core%%.*}"; rest="${core#*.}"
-    minor="${rest%%.*}"; patch="${rest#*.}"
-    case "${major}${minor}${patch}" in
-        ''|*[!0-9]*) return 0 ;;
-    esac
-    [ "$major" -gt 0 ] || [ "$minor" -gt 1 ] || { [ "$minor" -eq 1 ] && [ "$patch" -ge 2 ]; }
-}
-
 # ---- prereq checks ---------------------------------------------------------
 
 need curl
 need tar
 need uname
-
-# DOC_DIR is cleaned with rm -rf later. Fail early on a relative path;
-# the real path is checked again right before cleanup.
-case "$DOC_DIR" in
-    /*) ;;
-    *) fail "COMPENDIUM_DOC_DIR must be an absolute path (got: $DOC_DIR)" ;;
-esac
 
 # ---- detect platform -------------------------------------------------------
 
@@ -128,15 +101,6 @@ info "extracting"
 tar -xzf "$tmp/$tarball" -C "$tmp"
 [ -f "$tmp/compendium" ] || fail "tarball did not contain a 'compendium' binary"
 
-if needs_license_files "$version_no_v"; then
-    info "verifying license files"
-    [ -f "$tmp/LICENSE" ] || fail "tarball did not contain LICENSE"
-    [ -f "$tmp/NOTICE" ]  || fail "tarball did not contain NOTICE"
-    if [ ! -d "$tmp/third_party_licenses" ] || [ -z "$(ls -A "$tmp/third_party_licenses")" ]; then
-        fail "tarball did not contain third_party_licenses/"
-    fi
-fi
-
 mkdir -p "$INSTALL_DIR"
 cp "$tmp/compendium" "$INSTALL_DIR/compendium"
 chmod 0755 "$INSTALL_DIR/compendium"
@@ -147,27 +111,6 @@ if [ "$os" = "darwin" ] && command -v xattr >/dev/null 2>&1; then
 fi
 
 success "installed compendium ${VERSION} to ${INSTALL_DIR}/compendium"
-
-# Replace any license files from a previous install so they always match
-# the installed version.
-mkdir -p "$DOC_DIR"
-# Resolve ., .. and symlinks so a path like /tmp/.. can't reach /.
-DOC_DIR=$(cd "$DOC_DIR" && pwd -P) || fail "cannot use COMPENDIUM_DOC_DIR"
-case "$DOC_DIR" in
-    *[!/]*) ;;
-    *) fail "COMPENDIUM_DOC_DIR resolves to /" ;;
-esac
-rm -rf "$DOC_DIR/LICENSE" "$DOC_DIR/NOTICE" "$DOC_DIR/third_party_licenses"
-for f in LICENSE NOTICE; do
-    if [ -f "$tmp/$f" ]; then
-        cp "$tmp/$f" "$DOC_DIR/$f"
-    fi
-done
-if [ -d "$tmp/third_party_licenses" ]; then
-    cp -R "$tmp/third_party_licenses" "$DOC_DIR/third_party_licenses"
-fi
-
-success "license files in ${DOC_DIR}"
 
 # ---- PATH hint -------------------------------------------------------------
 
