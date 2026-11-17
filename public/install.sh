@@ -51,14 +51,11 @@ need curl
 need tar
 need uname
 
-# DOC_DIR is cleaned with rm -rf later, so refuse unsafe values up front.
+# DOC_DIR is cleaned with rm -rf later. Fail early on a relative path;
+# the real path is checked again right before cleanup.
 case "$DOC_DIR" in
     /*) ;;
     *) fail "COMPENDIUM_DOC_DIR must be an absolute path (got: $DOC_DIR)" ;;
-esac
-case "$DOC_DIR" in
-    *[!/]*) ;;
-    *) fail "COMPENDIUM_DOC_DIR must not be / (got: $DOC_DIR)" ;;
 esac
 
 # ---- detect platform -------------------------------------------------------
@@ -154,6 +151,12 @@ success "installed compendium ${VERSION} to ${INSTALL_DIR}/compendium"
 # Replace any license files from a previous install so they always match
 # the installed version.
 mkdir -p "$DOC_DIR"
+# Resolve ., .. and symlinks so a path like /tmp/.. can't reach /.
+DOC_DIR=$(cd "$DOC_DIR" && pwd -P) || fail "cannot use COMPENDIUM_DOC_DIR"
+case "$DOC_DIR" in
+    *[!/]*) ;;
+    *) fail "COMPENDIUM_DOC_DIR resolves to /" ;;
+esac
 rm -rf "$DOC_DIR/LICENSE" "$DOC_DIR/NOTICE" "$DOC_DIR/third_party_licenses"
 for f in LICENSE NOTICE; do
     if [ -f "$tmp/$f" ]; then
