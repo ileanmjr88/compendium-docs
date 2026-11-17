@@ -33,6 +33,10 @@ need() {
 # An unparseable version is treated as new, so the check stays on.
 needs_license_files() {
     core="${1%%-*}"
+    case "$core" in
+        *.*.*) ;;
+        *) return 0 ;;
+    esac
     major="${core%%.*}"; rest="${core#*.}"
     minor="${rest%%.*}"; patch="${rest#*.}"
     case "${major}${minor}${patch}" in
@@ -46,6 +50,16 @@ needs_license_files() {
 need curl
 need tar
 need uname
+
+# DOC_DIR is cleaned with rm -rf later, so refuse unsafe values up front.
+case "$DOC_DIR" in
+    /*) ;;
+    *) fail "COMPENDIUM_DOC_DIR must be an absolute path (got: $DOC_DIR)" ;;
+esac
+case "$DOC_DIR" in
+    *[!/]*) ;;
+    *) fail "COMPENDIUM_DOC_DIR must not be / (got: $DOC_DIR)" ;;
+esac
 
 # ---- detect platform -------------------------------------------------------
 
