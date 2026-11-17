@@ -67,6 +67,11 @@ export default defineConfig({
           translations: { es: "Referencia" },
           items: [{ autogenerate: { directory: "reference" } }],
         },
+        {
+          label: "Architecture Decisions",
+          translations: { es: "Decisiones de arquitectura" },
+          items: [{ autogenerate: { directory: "adr" } }],
+        },
         { label: "FAQ", translations: { es: "Preguntas frecuentes" }, slug: "faq" },
         { label: "Roadmap", translations: { es: "Hoja de ruta" }, slug: "roadmap" },
         {

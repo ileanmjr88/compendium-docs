@@ -4,7 +4,7 @@ description: Qué se incluye en v0.1, qué viene a continuación y qué se aplaz
 ---
 
 Esta página refleja lo que Compendium hace hoy frente a lo que está planeado
-para las próximas dos versiones.
+para las próximas versiones.
 
 ## v0.1 (actual)
 
@@ -39,51 +39,87 @@ Otras claves en `[packages]` se parsean pero todavía no se consumen.
 
 **Plataformas.** macOS y Linux.
 
-## v0.2 (a continuación)
+**Licencia.** Apache-2.0 a partir de la v0.1.2. La v0.1.1 y las versiones
+anteriores siguen bajo GPL-3.0. Consulte el
+[ADR 0001](/es/adr/0001-relicense-to-apache/).
 
-Ampliar el soporte de sistemas de build de C/C++, añadir runtimes de
-lenguajes importantes, completar el conjunto de compiladores cruzados
-embebidos y mejorar la ergonomía para desarrolladores.
+## v0.2 (en progreso): el lockfile
 
-- **Soporte de múltiples sistemas de build para C/C++**: Meson, Autotools,
-  Makefiles puros, b2 (Boost).
+`compendium.lock` registra exactamente cómo se resolvió `compendium.toml`,
+para que cualquier máquina pueda reproducir el mismo entorno.
+
+- **`compendium.lock`** — versiones exactas, URLs de descarga, checksums y
+  tamaños de cada lenguaje y herramienta fijados. `compendium install` lo
+  escribe en la primera ejecución y lo sigue después, resolviendo de nuevo
+  solo lo que cambió en `compendium.toml`.
+- **Fijación multiplataforma** — cada plataforma en la que su equipo
+  instala se agrega al lock. Instale en una Mac, luego en Linux, y el lock
+  fija ambas. Al subir de versión, se vuelven a resolver todas las
+  plataformas que ya están en el lock.
+- **`install --frozen`** (alias `--locked`) — para CI: falla en lugar de
+  actualizar el lock cuando `compendium.toml` se ha desviado de él.
+- **Los cambios de versión conservan la cobertura de plataformas** — si el
+  registro no tiene un build de la nueva versión para alguna de sus
+  plataformas, la instalación falla. `--allow-partial` acepta esa ausencia.
+- **Desviaciones en `status`** — informa cuando `compendium.toml` y
+  `compendium.lock` no coinciden, y cuando cambia un lockfile de ecosistema
+  como `go.sum`. Termina con un código distinto de cero si hay desviaciones.
+- **`[packages]` apunta a los archivos resueltos** — `go.sum`,
+  `package-lock.json`, `uv.lock` y `poetry.lock` en lugar de `go.mod`,
+  `package.json` y `pyproject.toml`. `vcpkg.json` y `requirements.txt` no
+  cambian. Es un cambio incompatible.
+- **`compendium verify`** — comprobación sin conexión de que el lock está
+  completo: cada elemento fijado tiene artefactos para cada plataforma que
+  cubre el lock, cada artefacto tiene un checksum, los lockfiles de cada
+  ecosistema siguen coincidiendo con sus digests registrados y el lock
+  cubre la plataforma en la que usted trabaja.
+- **Metadatos de licencia en el registro** — cada entrada del registro
+  indica el identificador SPDX de la licencia de la herramienta, la URL de
+  la licencia y la URL del código fuente.
+
+## v0.3: git hooks
+
+Compendium ejecuta los git hooks de su proyecto dentro del entorno fijado.
+
+- **Ejecutor de git hooks** — `compendium install` instala los hooks
+  declarados en `[hooks]` de `compendium.toml`, y cada uno se ejecuta con
+  sus herramientas fijadas. La sección se parsea en v0.1 pero todavía no se
+  ejecuta nada.
+- **Primero `pre-commit`**, más un pequeño conjunto de otros: `commit-msg`,
+  `pre-push` y `post-merge`.
+- **Auto-activación al cambiar de rama** — un hook `post-checkout` ejecuta
+  `compendium activate` cuando cambia de rama, para que el entorno siga a
+  su código.
+
+## v0.4: nuevas herramientas en el registro
+
+Más lenguajes, toolchains y sistemas de build, además de ejecutar los
+gestores de paquetes de su proyecto.
+
 - **Java** y sus herramientas de build.
-- **Rust** y su tooling.
-- **Toolchain ESP32 / Xtensa** (`xtensa-esp-elf-gcc`) — completa de forma
-  natural el conjunto de compiladores cruzados embebidos.
-- **Ejecutor de git hooks** — el ejecutor de hooks personalizados para
-  `[hooks]` en `compendium.toml`. La sección se parsea en v0.1 pero todavía
-  no se ejecuta nada.
-- **Auto-activación al cambiar de rama** — Compendium instala un git hook
-  post-checkout que ejecuta compendium activate cuando cambia de rama, para
-  que el entorno siga a su código
-- **`compendium doctor`** y mejores mensajes de error en toda la CLI.
-- **`compendium.lock`** — un nuevo lockfile versionado que fija versiones y
-  checksums exactos. `compendium install` lo respeta en ejecuciones
-  posteriores.
-- **`compendium verify`** — comprobación de reproducibilidad de que la caché
-  local coincide con el lockfile.
+- **Kotlin** — lenguaje de la JVM, se apoya en el trabajo de Java.
+- **Rust** — `rustc` y `cargo` como una sola entrada de lenguaje.
+- **Zig** — lenguaje de sistemas adyacente a C/C++; `zig cc` también
+  funciona como compilador cruzado de C/C++.
+- **Bun** — runtime de JavaScript que incluye su propio gestor de paquetes,
+  bundler y test runner.
+- **Toolchain ESP32 / Xtensa** (`xtensa-esp-elf-gcc`) — completa el
+  conjunto de compiladores cruzados embebidos.
+- **Más sistemas de build de C/C++** — Meson, Autotools, Makefiles puros y
+  b2 (Boost).
+- **`install --with-packages`** — opcional y desactivado por defecto.
+  Ejecuta los gestores de paquetes de ecosistema para `[packages]` (npm,
+  pip, uv, poetry, vcpkg, cargo, módulos de Go). Cuando cambia un lockfile
+  de ecosistema, solo se vuelve a ejecutar ese ecosistema.
 
-## v0.3
+## v0.5: gestor de bibliotecas de C/C++ integrado
 
-Control propio de la capa de runtime, más un gestor de paquetes de C/C++
-nativo de Compendium.
+Las primeras partes de un gestor de bibliotecas de C/C++ nativo de
+Compendium.
 
-- **Alternativa de gestor de bibliotecas de C/C++ integrado** — controlado
-  por configuración a través de `[deps.*]` en `compendium.toml`.
+- **`[deps.*]` en `compendium.toml`** — declare bibliotecas de C/C++ en la
+  misma configuración que su toolchain.
 - **Infraestructura de parches** para dependencias de C/C++ — declarados por
   dependencia, aplicados en orden antes del build, falla de forma dura ante
-  conflictos, el contenido de los parches se incluye con hash en el lockfile
-  para reproducibilidad.
-- **Bun**: runtime de JavaScript que incluye su propio gestor de paquetes,
-  bundler y test runner. Una sola fijación en `[languages]` reemplaza a
-  `node` más un `[tools].pnpm` separado para los proyectos que lo adoptan por
-  completo.
-- **Zig** — lenguaje de sistemas adyacente a C/C++; `zig cc` también funciona
-  como compilador cruzado de C/C++.
-- **Kotlin** — lenguaje de la JVM, se apoya en el trabajo de Java de v0.2.
-- **ASP.NET** — solo Linux y macOS. Windows no está en la hoja de ruta
-  inmediata.
-- **`compendium clean`** — limpia el scratch de descargas y la caché de
-  manifiestos. No recolecta como basura las versiones de herramientas
-  instaladas — eso necesita el diseño de project-registry y viene después.
+  conflictos. El contenido de los parches se incluye con hash en el
+  lockfile para reproducibilidad.

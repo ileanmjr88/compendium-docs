@@ -103,6 +103,25 @@ compendium version
 
 You should see <code>{latestVersion}</code> (the latest release), or `dev` if you built from `main`.
 
+## License
+
+Compendium is licensed under Apache-2.0 starting with v0.1.2. v0.1.1 and
+earlier stay under GPL-3.0. See [ADR 0001](/adr/0001-relicense-to-apache/)
+for why.
+
+Each release archive on
+[GitHub Releases](https://github.com/ileanmjr88/compendium/releases) includes:
+
+- `LICENSE` — the Apache-2.0 license text.
+- `NOTICE` — attribution notices.
+- `third_party_licenses/` — licenses for the Go dependencies built into the
+  binary.
+
+The install script checks that these files are in the archive and copies
+them to `~/.local/share/doc/compendium/` (or `$XDG_DATA_HOME/doc/compendium/`
+if set). Override the location with `COMPENDIUM_DOC_DIR`. Archives for
+v0.1.1 and earlier only include `LICENSE`.
+
 ## What's next
 
 Head to [First steps](/getting-started/first-steps/) to set up your first
